@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rhythm Trainer</title>
+<script src="https://unpkg.com/vexflow@3.0.9/releases/vexflow-min.js"></script>
 <style>
   :root {
     --bg: #0f0f13;
@@ -16,8 +17,6 @@
     --success: #4ade80;
     --warn: #facc15;
     --danger: #f87171;
-    --note-color: #7c6af7;
-    --note-active: #a89af9;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -41,13 +40,13 @@
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: var(--text-dim);
-    margin-bottom: 32px;
+    margin-bottom: 28px;
   }
 
   .difficulty-row {
     display: flex;
     gap: 8px;
-    margin-bottom: 40px;
+    margin-bottom: 36px;
   }
 
   .diff-btn {
@@ -62,55 +61,72 @@
     cursor: pointer;
     transition: all 0.15s;
   }
-
   .diff-btn:hover { border-color: var(--accent); color: var(--text); }
   .diff-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  .notation-area {
+  /* ── Notation area ───────────────────────────────────────────── */
+  .notation-wrap {
     width: 100%;
-    max-width: 640px;
-    margin-bottom: 32px;
-  }
-
-  .bar-label {
-    font-size: 0.7rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-dim);
+    max-width: 680px;
     margin-bottom: 8px;
   }
 
-  .bar-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .bar-label-side {
+  .row-label {
     font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     color: var(--text-dim);
-    width: 32px;
-    text-align: right;
-    flex-shrink: 0;
+    margin-bottom: 4px;
   }
 
-  canvas.bar-canvas {
-    flex: 1;
-    height: 60px;
-    border-radius: 6px;
+  .notation-box {
     background: var(--surface);
-    display: block;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    position: relative;
+    min-height: 90px;
   }
 
+  /* Make VexFlow SVG inherit theme colors */
+  .notation-box svg {
+    display: block;
+    width: 100%;
+  }
+  .notation-box svg * {
+    fill: var(--text);
+    stroke: var(--text);
+  }
+  /* Rests and filled noteheads should be solid fill, not stroked */
+  .notation-box svg path { stroke: none; fill: var(--text); }
+  .notation-box svg rect { stroke: var(--text); fill: var(--text); }
+  /* Stave lines */
+  .notation-box svg line { stroke: var(--text); stroke-opacity: 0.35; fill: none; }
+  /* Text (time sig, dynamics) */
+  .notation-box svg text { fill: var(--text); stroke: none; }
+  /* Beams */
+  .notation-box svg .vf-beam path { fill: var(--text); stroke: none; }
+  /* Barlines */
+  .notation-box svg .vf-barline path { fill: var(--text); stroke: none; }
+
+  /* User tap canvas */
+  #userCanvas {
+    display: block;
+    width: 100%;
+    height: 70px;
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  /* ── Score area ──────────────────────────────────────────────── */
   .score-area {
     width: 100%;
-    max-width: 640px;
-    min-height: 64px;
+    max-width: 680px;
+    min-height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 32px;
+    margin: 12px 0 24px;
   }
 
   .score-display {
@@ -118,66 +134,76 @@
     opacity: 0;
     transition: opacity 0.3s;
   }
-
   .score-display.visible { opacity: 1; }
 
-  .score-value {
-    font-size: 3rem;
-    font-weight: 700;
-    line-height: 1;
-    margin-bottom: 4px;
-  }
+  .score-stars { font-size: 1.4rem; letter-spacing: 4px; margin-bottom: 2px; }
+  .score-value { font-size: 2.8rem; font-weight: 700; line-height: 1; margin-bottom: 2px; }
+  .score-label { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
 
-  .score-label {
-    font-size: 0.75rem;
-    letter-spacing: 0.1em;
+  /* ── Status pill ─────────────────────────────────────────────── */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--text-dim);
+    margin-bottom: 24px;
+    border: 1px solid transparent;
   }
+  .status-pill.waiting  { border-color: var(--border); color: var(--text-dim); }
+  .status-pill.recording { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.1); }
+  .status-pill.done     { border-color: var(--border); color: var(--text-dim); }
 
-  .score-stars {
-    font-size: 1.3rem;
-    margin-bottom: 4px;
-    letter-spacing: 4px;
+  .pulse-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 0.8s infinite;
   }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
 
+  /* ── Tap button ──────────────────────────────────────────────── */
   .tap-btn {
-    width: 120px;
-    height: 120px;
+    width: 110px; height: 110px;
     border-radius: 50%;
     border: 2px solid var(--accent);
     background: var(--surface);
     color: var(--text);
     font-size: 0.8rem;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     cursor: pointer;
     transition: background 0.08s, transform 0.08s, box-shadow 0.08s;
-    box-shadow: 0 0 0 0 var(--accent);
     outline: none;
-    margin-bottom: 32px;
-    position: relative;
+    margin-bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
   }
-
   .tap-btn:hover { background: var(--accent-dim); }
-
   .tap-btn.pressed {
     background: var(--accent);
-    transform: scale(0.93);
-    box-shadow: 0 0 24px 4px var(--accent);
+    transform: scale(0.92);
+    box-shadow: 0 0 28px 6px rgba(124,106,247,0.5);
   }
-
-  .tap-btn .btn-state {
-    display: block;
-    font-size: 0.7rem;
+  .tap-btn-sub {
+    font-size: 0.62rem;
     color: var(--text-dim);
-    margin-top: 4px;
+    letter-spacing: 0.05em;
+    text-transform: none;
   }
+  .tap-btn.pressed .tap-btn-sub { color: rgba(255,255,255,0.7); }
 
+  /* ── Controls ────────────────────────────────────────────────── */
   .controls-row {
     display: flex;
     gap: 12px;
     align-items: center;
+    margin-bottom: 20px;
   }
 
   .ctrl-btn {
@@ -191,78 +217,11 @@
     transition: all 0.15s;
     letter-spacing: 0.05em;
   }
-
   .ctrl-btn:hover { border-color: var(--accent); color: var(--text); }
+  .ctrl-btn.primary { border-color: var(--accent); color: var(--accent); }
+  .ctrl-btn.primary:hover { background: var(--accent); color: #fff; }
 
-  .ctrl-btn.primary {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .ctrl-btn.primary:hover {
-    background: var(--accent);
-    color: #fff;
-  }
-
-  .hint {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    margin-top: 20px;
-    letter-spacing: 0.05em;
-  }
-
-  .playhead {
-    position: absolute;
-    top: 0;
-    width: 2px;
-    height: 100%;
-    background: var(--accent);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.1s;
-  }
-
-  .bar-wrap { position: relative; flex: 1; }
-
-  /* Tap flash overlay on canvas */
-  .tap-flash {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    border-radius: 6px;
-    background: var(--accent);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s;
-  }
-
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.72rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 28px;
-    border: 1px solid transparent;
-  }
-
-  .status-pill.waiting { border-color: var(--border); color: var(--text-dim); }
-  .status-pill.recording { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.1); }
-  .status-pill.done { border-color: var(--border); color: var(--text-dim); }
-
-  .pulse-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: pulse 0.8s infinite;
-  }
-
-  @keyframes pulse {
-    0%,100% { opacity: 1; }
-    50% { opacity: 0.2; }
-  }
+  .hint { font-size: 0.68rem; color: var(--text-dim); letter-spacing: 0.05em; }
 </style>
 </head>
 <body>
@@ -276,20 +235,11 @@
   <button class="diff-btn" data-level="pro">Pro</button>
 </div>
 
-<div class="notation-area">
-  <div class="bar-row">
-    <span class="bar-label-side">Play</span>
-    <div class="bar-wrap">
-      <canvas class="bar-canvas" id="targetCanvas"></canvas>
-    </div>
-  </div>
-  <div class="bar-row">
-    <span class="bar-label-side">You</span>
-    <div class="bar-wrap">
-      <canvas class="bar-canvas" id="userCanvas"></canvas>
-      <div class="tap-flash" id="tapFlash"></div>
-    </div>
-  </div>
+<div class="notation-wrap">
+  <div class="row-label">Target rhythm</div>
+  <div class="notation-box" id="notationBox"></div>
+  <div class="row-label">Your taps</div>
+  <canvas id="userCanvas"></canvas>
 </div>
 
 <div class="score-area">
@@ -304,9 +254,9 @@
   <span id="statusText">Tap to start</span>
 </div>
 
-<button class="tap-btn" id="tapBtn" title="Space">
-  TAP
-  <span class="btn-state" id="btnState">or press space</span>
+<button class="tap-btn" id="tapBtn">
+  <span>TAP</span>
+  <span class="tap-btn-sub" id="btnSub">or press space</span>
 </button>
 
 <div class="controls-row">
@@ -314,253 +264,286 @@
   <button class="ctrl-btn primary" id="nextBtn">Next →</button>
 </div>
 
-<p class="hint">Tap the rhythm shown above · your tempo doesn't matter</p>
+<p class="hint">Match the rhythm above · your tempo doesn't matter, only the proportions do</p>
 
 <script>
-// ─── Rhythm definitions ──────────────────────────────────────────────────────
-// Each pattern is an array of note objects: { beat: <position in beats>, dur: <duration in beats> }
-// All patterns are in 4/4. Beat 0 = bar start, beat 4 = where the whole note bar starts.
+const VF = Vex.Flow;
+
+// ─── Pattern definitions ─────────────────────────────────────────────────────
+// n(duration, dotted, rest)  — durations follow VexFlow: 'w','h','q','8','16'
+// Each pattern MUST sum to exactly 4 beats.
+const n = (dur, dot = false, rest = false) => ({ dur, dot, rest });
+const r = (dur, dot = false) => n(dur, dot, true);
+
+const DUR_BEATS = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
+function noteBeats({ dur, dot }) {
+  const b = DUR_BEATS[dur] || 1;
+  return dot ? b * 1.5 : b;
+}
 
 const PATTERNS = {
   easy: [
-    // Quarter notes
-    [0,1,2,3].map(b => ({ beat: b, dur: 1 })),
-    // Half + two quarters
-    [{ beat:0,dur:2},{beat:2,dur:1},{beat:3,dur:1}],
-    // Two halves
-    [{ beat:0,dur:2},{beat:2,dur:2}],
-    // Dotted half + quarter
-    [{ beat:0,dur:3},{beat:3,dur:1}],
-    // Quarter rest then 3 quarters (represented as notes; rests shown as gap)
-    [{ beat:1,dur:1},{beat:2,dur:1},{beat:3,dur:1}],
-    // Whole note (bar 1)
-    [{ beat:0,dur:4}],
+    [n('q'), n('q'), n('q'), n('q')],
+    [n('h'), n('q'), n('q')],
+    [n('h'), n('h')],
+    [n('h', true), n('q')],            // dotted half + quarter  (3+1=4)
+    [r('q'), n('q'), n('q'), n('q')],  // rest + 3 quarters
+    [n('w')],
+    [n('q'), n('h'), n('q')],
+    [n('q'), n('q'), n('h')],
   ],
   medium: [
-    // Eighth-note pairs mixed with quarters
-    [{ beat:0,dur:0.5},{beat:0.5,dur:0.5},{beat:1,dur:1},{beat:2,dur:1},{beat:3,dur:1}],
-    // Syncopation: quarter, off-beat half
-    [{ beat:0,dur:1},{beat:1.5,dur:1.5},{beat:3,dur:1}],
-    // Dotted quarter + eighth + half
-    [{ beat:0,dur:1.5},{beat:1.5,dur:0.5},{beat:2,dur:2}],
-    // All eighths
-    [0,0.5,1,1.5,2,2.5,3,3.5].map(b=>({beat:b,dur:0.5})),
-    // Eighth rest feel: starts on "and" of 1
-    [{ beat:0.5,dur:0.5},{beat:1,dur:1},{beat:2,dur:0.5},{beat:2.5,dur:0.5},{beat:3,dur:1}],
-    // Dotted quarter feel
-    [{ beat:0,dur:1.5},{beat:1.5,dur:1.5},{beat:3,dur:1}],
+    [n('8'), n('8'), n('q'), n('q'), n('q')],                             // 4
+    [n('q', true), n('8'), n('h')],                                        // 1.5+0.5+2=4
+    [n('8'), n('8'), n('8'), n('8'), n('8'), n('8'), n('8'), n('8')],     // all eighths
+    [r('8'), n('8'), n('q'), n('q'), n('q')],                              // 4
+    [n('8'), n('8'), n('8'), n('8'), n('h')],                              // 4
+    [n('q'), n('8'), n('8'), n('8'), n('8'), n('q')],                     // 1+0.5*4+1=4
+    [n('h', true), n('8'), n('8')],                                        // 3+0.5+0.5=4
   ],
   hard: [
-    // Triplet feel (approx): divide beat into 3rds
-    [0,1/3,2/3,1,4/3,5/3,2,3].map(b=>({beat:b,dur:1/3})).concat([{beat:3,dur:1}]),
-    // Sixteenth notes first two beats
-    [0,0.25,0.5,0.75,1,1.25,1.5,1.75].map(b=>({beat:b,dur:0.25})).concat([{beat:2,dur:2}]),
-    // Syncopated eighths
-    [{ beat:0,dur:0.5},{beat:1,dur:0.5},{beat:1.5,dur:1},{beat:2.5,dur:0.5},{beat:3,dur:1}],
-    // Habanera-ish
-    [{ beat:0,dur:1.5},{beat:1.5,dur:0.5},{beat:2,dur:0.5},{beat:2.5,dur:0.5},{beat:3,dur:1}],
-    // Off-beat sixteenths
-    [{ beat:0.25,dur:0.25},{beat:0.75,dur:0.25},{beat:1,dur:1},{beat:2.25,dur:0.25},{beat:2.75,dur:0.25},{beat:3,dur:1}],
-    // Tied-over feel
-    [{ beat:0,dur:0.75},{beat:0.75,dur:0.25},{beat:1,dur:0.5},{beat:1.5,dur:0.5},{beat:2,dur:1.5},{beat:3.5,dur:0.5}],
+    [n('16'), n('16'), n('16'), n('16'), n('q'), n('q'), n('q')],          // 1+3=4
+    [n('q', true), n('8'), n('q'), n('8'), n('8')],                        // 1.5+0.5+1+0.5+0.5=4
+    [n('8'), n('8'), n('q'), n('8'), n('8'), n('8'), n('8')],              // 4
+    [n('16'), n('16'), n('8'), n('q'), n('h')],                            // 0.25+0.25+0.5+1+2=4
+    [n('8'), r('8'), n('8'), r('8'), n('q'), n('q')],                      // offbeat eighths
+    [n('16'),n('16'),n('16'),n('16'),n('8'),n('8'),n('q'),n('q')],        // 4
   ],
   pro: [
-    // Quintuplets (5 in the time of 4)
-    [0,0.8,1.6,2.4,3.2].map(b=>({beat:b,dur:0.8})),
-    // 16th-note syncopation
-    [0,0.25,0.5,1,1.25,1.75,2,2.5,2.75,3,3.25,3.75].map(b=>({beat:b,dur:0.25})),
-    // Complex mixed
-    [{ beat:0,dur:0.33},{beat:0.33,dur:0.33},{beat:0.67,dur:0.67},{beat:1.33,dur:0.67},{beat:2,dur:0.5},{beat:2.5,dur:0.25},{beat:2.75,dur:0.25},{beat:3,dur:1}],
-    // Sextuplets first half
-    [0,1/3,2/3,1,4/3,5/3].map(b=>({beat:b,dur:1/3})).concat([{beat:2,dur:0.5},{beat:2.5,dur:0.5},{beat:3,dur:1}]),
-    // Dense
-    [0,0.25,0.5,0.75,1,1.5,1.75,2,2.5,3,3.5].map(b=>({beat:b,dur:0.25})),
-    // Irregular groupings
-    [{ beat:0,dur:0.5},{beat:0.5,dur:1.5},{beat:2,dur:0.25},{beat:2.25,dur:0.25},{beat:2.5,dur:0.5},{beat:3,dur:1}],
-  ]
+    [n('16'),n('16'),n('16'),n('16'),n('16'),n('16'),n('16'),n('16'),n('h')], // 2+2=4
+    [n('q', true), n('8'), n('q', true), n('8')],                           // 1.5+0.5+1.5+0.5=4
+    [r('8'), n('8'), r('8'), n('8'), r('8'), n('8'), r('8'), n('8')],       // all offbeats
+    [n('16'), n('8'), n('16'), n('q'), n('q'), n('q')],                     // 0.25+0.5+0.25+3=4
+    [n('8'),n('16'),n('16'),n('8'),n('16'),n('16'),n('q'),n('q')],         // 4
+    [n('q',true),n('16'),n('16'),n('8'),n('q'),n('q')],                    // 1.5+0.25+0.25+0.5+1+0.5=4
+  ],
 };
 
-const WHOLE_NOTE = { beat: 0, dur: 4 }; // bar 2
+// Sanity check patterns sum to 4 beats
+Object.entries(PATTERNS).forEach(([level, list]) => {
+  list.forEach((p, i) => {
+    const sum = p.reduce((a, note) => a + noteBeats(note), 0);
+    if (Math.abs(sum - 4) > 0.001)
+      console.warn(`Pattern ${level}[${i}] sums to ${sum}, expected 4`);
+  });
+});
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let currentLevel = 'easy';
 let currentPattern = null;
-let state = 'idle'; // idle | recording | done
+let state = 'idle';
 let tapTimes = [];
 let recordingStart = null;
-let recordingEnd = null; // set after final tap detection
 let endTimer = null;
 
-// ─── DOM refs ────────────────────────────────────────────────────────────────
-const tapBtn       = document.getElementById('tapBtn');
-const btnState     = document.getElementById('btnState');
-const targetCanvas = document.getElementById('targetCanvas');
+// VexFlow measure layout info (set when rendering, used to align user canvas)
+let bar1PixelStart = 0; // x offset (in CSS px) where bar 1 notes start
+let bar1PixelWidth = 0; // width (in CSS px) spanning bar 1
+
+// ─── DOM ─────────────────────────────────────────────────────────────────────
+const notationBox  = document.getElementById('notationBox');
 const userCanvas   = document.getElementById('userCanvas');
-const tapFlash     = document.getElementById('tapFlash');
+const tapBtn       = document.getElementById('tapBtn');
+const btnSub       = document.getElementById('btnSub');
+const statusPill   = document.getElementById('statusPill');
 const scoreDisplay = document.getElementById('scoreDisplay');
 const scoreValue   = document.getElementById('scoreValue');
 const scoreLabel   = document.getElementById('scoreLabel');
 const scoreStars   = document.getElementById('scoreStars');
-const statusPill   = document.getElementById('statusPill');
-const statusText   = document.getElementById('statusText');
 const retryBtn     = document.getElementById('retryBtn');
 const nextBtn      = document.getElementById('nextBtn');
 
-// ─── Canvas setup ────────────────────────────────────────────────────────────
-function resizeCanvas(canvas) {
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width  = rect.width  * devicePixelRatio;
-  canvas.height = canvas.offsetHeight * devicePixelRatio;
-  canvas.style.width  = rect.width + 'px';
-  canvas.style.height = canvas.offsetHeight + 'px';
+// ─── Notation rendering ───────────────────────────────────────────────────────
+function renderNotation(pattern) {
+  notationBox.innerHTML = '';
+
+  const containerW = notationBox.offsetWidth || 640;
+  const H = 90;
+  const dpr = window.devicePixelRatio || 1;
+
+  const renderer = new VF.Renderer(notationBox, VF.Renderer.Backends.SVG);
+  renderer.resize(containerW, H);
+  const ctx = renderer.getContext();
+  ctx.setFont('Arial', 10, '');
+  ctx.setFillStyle('#e8e8f0');
+  ctx.setStrokeStyle('#e8e8f0');
+  ctx.setLineWidth(1.2);
+
+  const margin = 10;
+  const totalW = containerW - margin * 2;
+  // Give bar 1 ~70% of space, bar 2 (whole note) ~30%
+  const b1W = Math.round(totalW * 0.70);
+  const b2W = totalW - b1W;
+  const staveY = 14;
+
+  // Bar 1
+  const stave1 = new VF.Stave(margin, staveY, b1W);
+  stave1.addClef('percussion');
+  stave1.addTimeSignature('4/4');
+  stave1.setContext(ctx).draw();
+
+  // Bar 2 (whole note reference)
+  const stave2 = new VF.Stave(margin + b1W, staveY, b2W);
+  stave2.setEndBarType(VF.Barline.type.END);
+  stave2.setContext(ctx).draw();
+
+  // Build VexFlow notes for bar 1
+  const vfNotes1 = pattern.map(spec => {
+    const durStr = spec.rest ? spec.dur + 'r' : spec.dur;
+    const note = new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: durStr });
+    if (spec.dot) note.addDotToAll();
+    return note;
+  });
+
+  // Whole note for bar 2
+  const vfNotes2 = [new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: 'w' })];
+
+  const voice1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
+  voice1.addTickables(vfNotes1);
+
+  const voice2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
+  voice2.addTickables(vfNotes2);
+
+  // Stave intrinsics (clef + time sig) take up some space; estimate padding
+  const b1NoteArea = b1W - 52; // rough space consumed by clef+timesig
+  const b2NoteArea = b2W - 16;
+
+  new VF.Formatter().joinVoices([voice1]).format([voice1], b1NoteArea);
+  new VF.Formatter().joinVoices([voice2]).format([voice2], b2NoteArea);
+
+  voice1.draw(ctx, stave1);
+  voice2.draw(ctx, stave2);
+
+  // Auto-beam eighth/sixteenth notes in bar 1
+  const beamable = vfNotes1.filter(n => !n.isRest());
+  const beams = VF.Beam.generateBeams(beamable);
+  beams.forEach(b => b.setContext(ctx).draw());
+
+  // Record bar 1 layout for user-canvas alignment
+  // The note area starts after clef+timesig padding (≈52px from left edge of stave)
+  bar1PixelStart = margin + 52;
+  bar1PixelWidth = b1NoteArea;
 }
 
-// ─── Drawing ─────────────────────────────────────────────────────────────────
-function drawBar(canvas, notes, isBar2 = false, userTaps = null, scoreColor = null) {
-  resizeCanvas(canvas);
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  const dpr = devicePixelRatio;
+// ─── User tap canvas ──────────────────────────────────────────────────────────
+function resizeUserCanvas() {
+  const rect = userCanvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  userCanvas.width  = rect.width * dpr;
+  userCanvas.height = userCanvas.offsetHeight * dpr;
+  userCanvas.style.width  = rect.width + 'px';
+  userCanvas.style.height = userCanvas.offsetHeight + 'px';
+}
+
+function drawUserTaps(relPositions, scoreColors) {
+  resizeUserCanvas();
+  const ctx = userCanvas.getContext('2d');
+  const W = userCanvas.width, H = userCanvas.height;
+  const dpr = window.devicePixelRatio || 1;
 
   ctx.clearRect(0, 0, W, H);
 
-  // Background handled by CSS, just draw on it
-  const pad = 16 * dpr;
-  const barW = W - pad * 2;
-  const noteH = H * 0.45;
-  const noteY = (H - noteH) / 2;
-  const totalBeats = 4;
+  const notationContainerW = notationBox.offsetWidth;
+  const canvasW = userCanvas.offsetWidth;
 
-  // Bar line (start)
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  // Map bar1 pixel layout to canvas coordinate space
+  // bar1PixelStart and bar1PixelWidth are in CSS px of the notation box
+  const scaleX = canvasW / notationContainerW;
+  const tapAreaStart = bar1PixelStart * scaleX * dpr;
+  const tapAreaWidth = bar1PixelWidth * scaleX * dpr;
+
+  const midY = H / 2;
+  const tickH = H * 0.55;
+
+  // Draw baseline
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = dpr;
+  ctx.beginPath();
+  ctx.moveTo(tapAreaStart, midY);
+  ctx.lineTo(tapAreaStart + tapAreaWidth, midY);
+  ctx.stroke();
+
+  // Endpoint marks
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
   ctx.lineWidth = 1.5 * dpr;
-  ctx.beginPath();
-  ctx.moveTo(pad, H * 0.2);
-  ctx.lineTo(pad, H * 0.8);
-  ctx.stroke();
-
-  // Baseline
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = 1 * dpr;
-  ctx.beginPath();
-  ctx.moveTo(pad, H / 2);
-  ctx.lineTo(W - pad, H / 2);
-  ctx.stroke();
-
-  // End bar line
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.beginPath();
-  ctx.moveTo(W - pad, H * 0.2);
-  ctx.lineTo(W - pad, H * 0.8);
-  ctx.stroke();
-
-  const beatToX = (beat) => pad + (beat / totalBeats) * barW;
-
-  const color = scoreColor || (isBar2 ? 'rgba(160,160,200,0.6)' : '#7c6af7');
-  const fillColor = scoreColor || (isBar2 ? 'rgba(160,160,200,0.25)' : 'rgba(124,106,247,0.35)');
-  const strokeColor = scoreColor || (isBar2 ? 'rgba(160,160,200,0.7)' : '#a89af9');
-
-  notes.forEach(note => {
-    const x = beatToX(note.beat);
-    const w = Math.max((note.dur / totalBeats) * barW - 3 * dpr, 4 * dpr);
-    const r = 4 * dpr;
-
-    // Note body
-    ctx.fillStyle = fillColor;
-    roundRect(ctx, x, noteY, w, noteH, r);
-    ctx.fill();
-
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 1.5 * dpr;
-    roundRect(ctx, x, noteY, w, noteH, r);
-    ctx.stroke();
-
-    // Stem indicator (small tick at note head)
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 1.5 * dpr;
+  [tapAreaStart, tapAreaStart + tapAreaWidth].forEach(x => {
     ctx.beginPath();
-    ctx.moveTo(x + 1 * dpr, noteY - 4 * dpr);
-    ctx.lineTo(x + 1 * dpr, noteY);
+    ctx.moveTo(x, midY - H * 0.32);
+    ctx.lineTo(x, midY + H * 0.32);
     ctx.stroke();
   });
 
-  // User tap markers (shown on user bar while/after recording)
-  if (userTaps && userTaps.length > 0) {
-    userTaps.forEach((t, i) => {
-      const x = pad + t * barW;
-      ctx.strokeStyle = i === 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.5)';
-      ctx.lineWidth = 2 * dpr;
-      ctx.beginPath();
-      ctx.moveTo(x, noteY - 6 * dpr);
-      ctx.lineTo(x, noteY + noteH + 6 * dpr);
-      ctx.stroke();
-    });
-  }
+  if (!relPositions || relPositions.length === 0) return;
+
+  relPositions.forEach((rel, i) => {
+    const x = tapAreaStart + rel * tapAreaWidth;
+    const color = scoreColors ? scoreColors[i] : 'rgba(168,154,249,0.9)';
+
+    // Glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6 * dpr;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(x, midY - tickH / 2);
+    ctx.lineTo(x, midY + tickH / 2);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+  });
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-// ─── Pattern utils ───────────────────────────────────────────────────────────
-function pickPattern() {
-  const pool = PATTERNS[currentLevel];
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
+// ─── Scoring ──────────────────────────────────────────────────────────────────
 function patternToRelative(pattern) {
-  // Convert beat positions to 0-1 relative (4 beats = 1.0)
-  return pattern.map(n => n.beat / 4);
+  const positions = [];
+  let pos = 0;
+  pattern.forEach(note => {
+    if (!note.rest) positions.push(pos / 4);
+    pos += noteBeats(note);
+  });
+  return positions;
 }
 
-// ─── Score ───────────────────────────────────────────────────────────────────
+function inferRelative(times) {
+  if (times.length < 2) return [0];
+  const span = times[times.length - 1] - times[0];
+  const lastGap = times[times.length - 1] - times[times.length - 2];
+  const estimated = span + lastGap * 0.5;
+  return times.map(t => (t - times[0]) / estimated);
+}
+
 function scoreAttempt(targetRel, userRel) {
-  if (userRel.length === 0) return 0;
-
-  const target = [...targetRel].sort((a,b)=>a-b);
-  const user   = [...userRel].sort((a,b)=>a-b);
-
-  // Hungarian-style greedy matching: each target note matched to nearest user tap
+  if (!userRel.length) return 0;
   const used = new Set();
   let totalErr = 0;
   let matched = 0;
 
-  target.forEach(t => {
+  targetRel.forEach(t => {
     let best = Infinity, bestIdx = -1;
-    user.forEach((u, i) => {
+    userRel.forEach((u, i) => {
       if (used.has(i)) return;
       const d = Math.abs(t - u);
       if (d < best) { best = d; bestIdx = i; }
     });
-    if (bestIdx >= 0) {
-      used.add(bestIdx);
-      totalErr += best;
-      matched++;
-    }
+    if (bestIdx >= 0) { used.add(bestIdx); totalErr += best; matched++; }
   });
 
-  // Penalty for extra taps
-  const extra = user.length - matched;
-  const extraPenalty = extra * 0.04;
+  const extra   = userRel.length - matched;
+  const missing = targetRel.length - matched;
+  const avgErr  = matched > 0 ? totalErr / matched : 1;
 
-  // Penalty for missing notes
-  const missing = target.length - matched;
-  const missingPenalty = missing * 0.08;
+  return Math.round(Math.max(0, 1 - avgErr * 6 - extra * 0.04 - missing * 0.08) * 100);
+}
 
-  const avgErr = matched > 0 ? totalErr / matched : 1;
-  const rawScore = Math.max(0, 1 - (avgErr * 6) - extraPenalty - missingPenalty);
-  return Math.round(rawScore * 100);
+// Map each user tap to a color based on distance to nearest target
+function tapColors(targetRel, userRel) {
+  return userRel.map(u => {
+    const nearest = Math.min(...targetRel.map(t => Math.abs(t - u)));
+    if (nearest < 0.04)  return '#4ade80';
+    if (nearest < 0.09)  return '#facc15';
+    return '#f87171';
+  });
 }
 
 function scoreToLabel(s) {
@@ -571,42 +554,33 @@ function scoreToLabel(s) {
   if (s >= 25) return 'Keep going';
   return 'Try again';
 }
-
 function scoreToStars(s) {
   if (s >= 90) return '★★★';
   if (s >= 65) return '★★☆';
   if (s >= 40) return '★☆☆';
   return '☆☆☆';
 }
-
 function scoreToColor(s) {
   if (s >= 80) return '#4ade80';
   if (s >= 55) return '#facc15';
   return '#f87171';
 }
 
-// ─── UI helpers ──────────────────────────────────────────────────────────────
+// ─── UI helpers ───────────────────────────────────────────────────────────────
 function setStatus(mode, text) {
   statusPill.className = 'status-pill ' + mode;
-  if (mode === 'recording') {
-    statusPill.innerHTML = '<div class="pulse-dot"></div><span>' + text + '</span>';
-  } else {
-    statusPill.innerHTML = '<span>' + text + '</span>';
-  }
-}
-
-function flashTap() {
-  tapFlash.style.opacity = '0.25';
-  setTimeout(() => { tapFlash.style.opacity = '0'; }, 100);
+  statusPill.innerHTML = mode === 'recording'
+    ? `<div class="pulse-dot"></div><span>${text}</span>`
+    : `<span>${text}</span>`;
 }
 
 function showScore(score) {
-  const color = scoreToColor(score);
-  scoreValue.textContent = score;
-  scoreValue.style.color = color;
-  scoreLabel.textContent = scoreToLabel(score);
+  const c = scoreToColor(score);
   scoreStars.textContent = scoreToStars(score);
-  scoreStars.style.color = color;
+  scoreStars.style.color = c;
+  scoreValue.textContent = score;
+  scoreValue.style.color = c;
+  scoreLabel.textContent = scoreToLabel(score);
   scoreDisplay.classList.add('visible');
 }
 
@@ -614,7 +588,12 @@ function hideScore() {
   scoreDisplay.classList.remove('visible');
 }
 
-// ─── Core logic ──────────────────────────────────────────────────────────────
+// ─── App lifecycle ────────────────────────────────────────────────────────────
+function pickPattern() {
+  const pool = PATTERNS[currentLevel];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function loadPattern(pattern) {
   currentPattern = pattern;
   state = 'idle';
@@ -623,61 +602,10 @@ function loadPattern(pattern) {
   clearTimeout(endTimer);
   hideScore();
   setStatus('waiting', 'Tap to start');
-  btnState.textContent = 'or press space';
+  btnSub.textContent = 'or press space';
 
-  drawBar(targetCanvas, pattern);
-  drawBar(targetCanvas.parentElement.parentElement, pattern); // noop — just draw target
-  drawBar(userCanvas, []);
-  drawBar(targetCanvas, pattern); // redraw properly
-  redrawUser([]);
-}
-
-function redrawUser(relTaps, scoreColor = null) {
-  // Convert relative positions to note-like objects for display
-  if (relTaps.length === 0) {
-    drawBar(userCanvas, []);
-    return;
-  }
-  // Show taps as thin bars
-  const W_canvas = userCanvas.offsetWidth * devicePixelRatio;
-  resizeCanvas(userCanvas);
-  const ctx = userCanvas.getContext('2d');
-  const W = userCanvas.width, H = userCanvas.height;
-  const dpr = devicePixelRatio;
-  const pad = 16 * dpr;
-  const barW = W - pad * 2;
-  const noteH = H * 0.45;
-  const noteY = (H - noteH) / 2;
-
-  ctx.clearRect(0, 0, W, H);
-
-  // Baseline
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = dpr;
-  ctx.beginPath(); ctx.moveTo(pad, H/2); ctx.lineTo(W-pad, H/2); ctx.stroke();
-
-  // Bar lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.beginPath(); ctx.moveTo(pad, H*0.2); ctx.lineTo(pad, H*0.8); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(W-pad, H*0.2); ctx.lineTo(W-pad, H*0.8); ctx.stroke();
-
-  const color = scoreColor || '#a89af9';
-
-  relTaps.forEach((t, i) => {
-    const x = pad + t * barW;
-    const w = Math.max(barW * 0.025, 6 * dpr);
-    const r = 3 * dpr;
-
-    ctx.fillStyle = scoreColor ? scoreColor + '44' : 'rgba(168,154,249,0.3)';
-    roundRect(ctx, x, noteY, w, noteH, r);
-    ctx.fill();
-
-    ctx.strokeStyle = scoreColor || 'rgba(168,154,249,0.85)';
-    ctx.lineWidth = 1.5 * dpr;
-    roundRect(ctx, x, noteY, w, noteH, r);
-    ctx.stroke();
-  });
+  renderNotation(pattern);
+  drawUserTaps(null);
 }
 
 function startRecording() {
@@ -685,93 +613,65 @@ function startRecording() {
   tapTimes = [];
   recordingStart = performance.now();
   setStatus('recording', 'Recording…');
-  btnState.textContent = 'keep tapping!';
+  btnSub.textContent = 'keep tapping!';
   hideScore();
-  redrawUser([]);
-  clearTimeout(endTimer);
+  drawUserTaps([]);
 }
 
 function registerTap() {
   if (state === 'idle' || state === 'done') {
     startRecording();
-    tapTimes.push(0); // first tap = beat 0
-    flashTap();
-    redrawUser([0]);
+    tapTimes.push(0);
+    drawUserTaps([0]);
     armEndTimer();
     return;
   }
-
   if (state === 'recording') {
-    const elapsed = performance.now() - recordingStart;
-    tapTimes.push(elapsed);
-    flashTap();
+    const t = performance.now() - recordingStart;
+    tapTimes.push(t);
     clearTimeout(endTimer);
     armEndTimer();
-
-    // Infer relative positions on the fly from current taps
-    const rel = inferRelative(tapTimes);
-    redrawUser(rel);
+    drawUserTaps(inferRelative(tapTimes));
   }
 }
 
 function armEndTimer() {
-  // End recording after silence. How long to wait scales with difficulty
-  const silenceMs = { easy: 1800, medium: 1600, hard: 1400, pro: 1200 }[currentLevel];
-  endTimer = setTimeout(finishRecording, silenceMs);
-}
-
-function inferRelative(times) {
-  if (times.length < 2) return [0];
-  // Estimate total duration = span of taps + half of last inter-tap interval
-  const span = times[times.length - 1] - times[0];
-  const lastGap = times[times.length - 1] - times[times.length - 2];
-  const estimated = span + lastGap * 0.5;
-  return times.map(t => (t - times[0]) / estimated);
+  const ms = { easy: 1800, medium: 1600, hard: 1400, pro: 1200 }[currentLevel];
+  endTimer = setTimeout(finishRecording, ms);
 }
 
 function finishRecording() {
   if (state !== 'recording') return;
   state = 'done';
 
-  if (tapTimes.length === 0) {
+  if (!tapTimes.length) {
     setStatus('done', 'No taps detected');
     return;
   }
 
-  const userRel = inferRelative(tapTimes);
+  const userRel   = inferRelative(tapTimes);
   const targetRel = patternToRelative(currentPattern);
-  const score = scoreAttempt(targetRel, userRel);
+  const score     = scoreAttempt(targetRel, userRel);
+  const colors    = tapColors(targetRel, userRel);
 
-  const color = scoreToColor(score);
-  redrawUser(userRel, color);
+  drawUserTaps(userRel, colors);
   showScore(score);
-  setStatus('done', 'Tap to retry · Next for new pattern');
-  btnState.textContent = 'retry or press space';
+  setStatus('done', 'Tap to retry · Next for a new pattern');
+  btnSub.textContent = 'retry or press space';
 }
 
-// ─── Init ────────────────────────────────────────────────────────────────────
-function init() {
-  loadPattern(pickPattern());
-  drawBar(targetCanvas, currentPattern);
-}
-
-// ─── Events ──────────────────────────────────────────────────────────────────
-tapBtn.addEventListener('mousedown', e => {
+// ─── Events ───────────────────────────────────────────────────────────────────
+function handleTap(e) {
   e.preventDefault();
   tapBtn.classList.add('pressed');
   registerTap();
-});
+}
 
-tapBtn.addEventListener('mouseup', () => tapBtn.classList.remove('pressed'));
+tapBtn.addEventListener('mousedown',  handleTap);
+tapBtn.addEventListener('touchstart', handleTap, { passive: false });
+tapBtn.addEventListener('mouseup',    () => tapBtn.classList.remove('pressed'));
 tapBtn.addEventListener('mouseleave', () => tapBtn.classList.remove('pressed'));
-
-tapBtn.addEventListener('touchstart', e => {
-  e.preventDefault();
-  tapBtn.classList.add('pressed');
-  registerTap();
-}, { passive: false });
-
-tapBtn.addEventListener('touchend', () => tapBtn.classList.remove('pressed'));
+tapBtn.addEventListener('touchend',   () => tapBtn.classList.remove('pressed'));
 
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && !e.repeat) {
@@ -780,20 +680,12 @@ document.addEventListener('keydown', e => {
     registerTap();
   }
 });
-
 document.addEventListener('keyup', e => {
   if (e.code === 'Space') tapBtn.classList.remove('pressed');
 });
 
-retryBtn.addEventListener('click', () => {
-  loadPattern(currentPattern);
-  drawBar(targetCanvas, currentPattern);
-});
-
-nextBtn.addEventListener('click', () => {
-  loadPattern(pickPattern());
-  drawBar(targetCanvas, currentPattern);
-});
+retryBtn.addEventListener('click', () => { loadPattern(currentPattern); });
+nextBtn.addEventListener('click',  () => { loadPattern(pickPattern()); });
 
 document.querySelectorAll('.diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -801,16 +693,23 @@ document.querySelectorAll('.diff-btn').forEach(btn => {
     btn.classList.add('active');
     currentLevel = btn.dataset.level;
     loadPattern(pickPattern());
-    drawBar(targetCanvas, currentPattern);
   });
 });
 
 window.addEventListener('resize', () => {
-  drawBar(targetCanvas, currentPattern);
-  redrawUser(tapTimes.length > 1 ? inferRelative(tapTimes) : []);
+  renderNotation(currentPattern);
+  if (tapTimes.length > 1) {
+    const rel    = inferRelative(tapTimes);
+    const target = patternToRelative(currentPattern);
+    const cols   = state === 'done' ? tapColors(target, rel) : null;
+    drawUserTaps(rel, cols);
+  } else {
+    drawUserTaps(null);
+  }
 });
 
-init();
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadPattern(pickPattern());
 </script>
 </body>
 </html>
