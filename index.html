@@ -99,7 +99,7 @@
   #userCanvas {
     display: block;
     width: 100%;
-    height: 70px;
+    height: 90px;
     border-radius: 8px;
     background: var(--surface);
   }
@@ -479,7 +479,7 @@ function resizeUserCanvas() {
   userCanvas.style.height = userCanvas.offsetHeight + 'px';
 }
 
-function drawUserTaps(relPositions, scoreColors) {
+function drawUserTaps(relPositions, scoreColors, targetRel) {
   resizeUserCanvas();
   const ctx = userCanvas.getContext('2d');
   const W = userCanvas.width, H = userCanvas.height;
@@ -487,73 +487,85 @@ function drawUserTaps(relPositions, scoreColors) {
 
   ctx.clearRect(0, 0, W, H);
 
-  const notationW  = notationBox.offsetWidth;
-  const canvasW    = userCanvas.offsetWidth;
-  const scaleX     = canvasW / notationW;
+  const notationW = notationBox.offsetWidth;
+  const canvasW   = userCanvas.offsetWidth;
+  const scaleX    = canvasW / notationW;
 
-  // bar 1 note area in canvas pixels
   const tapStart = bar1PixelStart * scaleX * dpr;
   const tapWidth = bar1PixelWidth * scaleX * dpr;
-  // bar 2 extends to end of notation
   const bar2End  = notationW * scaleX * dpr - 10 * scaleX * dpr;
 
-  const midY  = H / 2;
-  const tickH = H * 0.55;
+  // When showing the target row, split canvas: top 55% user, bottom 40% target
+  const showTarget = !!(targetRel && targetRel.length);
+  const userZoneH   = showTarget ? H * 0.55 : H;
+  const targetZoneY = H * 0.62; // centre of bottom zone
+  const userMidY    = userZoneH / 2;
+  const userTickH   = userZoneH * 0.55;
+  const targetTickH = (H - targetZoneY - 4 * dpr) * 1.1;
 
-  // Bar 1 baseline (solid)
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = dpr;
-  ctx.beginPath();
-  ctx.moveTo(tapStart, midY);
-  ctx.lineTo(tapStart + tapWidth, midY);
-  ctx.stroke();
-
-  // Bar 2 baseline (dimmer — reference only)
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-  ctx.beginPath();
-  ctx.moveTo(tapStart + tapWidth, midY);
-  ctx.lineTo(bar2End, midY);
-  ctx.stroke();
-
-  // Start barline
-  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.beginPath();
-  ctx.moveTo(tapStart, midY - H * 0.32);
-  ctx.lineTo(tapStart, midY + H * 0.32);
-  ctx.stroke();
-
-  // Middle barline (= position 1.0, where whole note falls)
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = 2 * dpr;
-  const barlineX = tapStart + tapWidth;
-  ctx.beginPath();
-  ctx.moveTo(barlineX, midY - H * 0.38);
-  ctx.lineTo(barlineX, midY + H * 0.38);
-  ctx.stroke();
-  // Double barline
-  ctx.lineWidth = dpr;
-  ctx.beginPath();
-  ctx.moveTo(barlineX + 3 * dpr, midY - H * 0.38);
-  ctx.lineTo(barlineX + 3 * dpr, midY + H * 0.38);
-  ctx.stroke();
-
-  if (!relPositions || relPositions.length === 0) return;
-
-  relPositions.forEach((rel, i) => {
-    const x     = tapStart + rel * tapWidth;
-    const color = scoreColors ? scoreColors[i] : 'rgba(168,154,249,0.9)';
-
-    ctx.shadowColor = color;
-    ctx.shadowBlur  = 6 * dpr;
-    ctx.strokeStyle = color;
-    ctx.lineWidth   = 2.5 * dpr;
+  // ── Separator ────────────────────────────────────────────────────────────
+  if (showTarget) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = dpr;
     ctx.beginPath();
-    ctx.moveTo(x, midY - tickH / 2);
-    ctx.lineTo(x, midY + tickH / 2);
+    ctx.moveTo(tapStart, H * 0.58);
+    ctx.lineTo(tapStart + tapWidth, H * 0.58);
     ctx.stroke();
-    ctx.shadowBlur = 0;
-  });
+  }
+
+  // ── Helper: draw baseline + barlines for a given zone midY ───────────────
+  function drawRuler(midY, tickSpan) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = dpr;
+    ctx.beginPath(); ctx.moveTo(tapStart, midY); ctx.lineTo(tapStart + tapWidth, midY); ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath(); ctx.moveTo(tapStart + tapWidth, midY); ctx.lineTo(bar2End, midY); ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath(); ctx.moveTo(tapStart, midY - tickSpan * 0.32); ctx.lineTo(tapStart, midY + tickSpan * 0.32); ctx.stroke();
+
+    const bx = tapStart + tapWidth;
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.moveTo(bx, midY - tickSpan * 0.38); ctx.lineTo(bx, midY + tickSpan * 0.38); ctx.stroke();
+    ctx.lineWidth = dpr;
+    ctx.beginPath(); ctx.moveTo(bx + 3 * dpr, midY - tickSpan * 0.38); ctx.lineTo(bx + 3 * dpr, midY + tickSpan * 0.38); ctx.stroke();
+  }
+
+  drawRuler(userMidY, userZoneH);
+  if (showTarget) drawRuler(targetZoneY, H - targetZoneY - 2 * dpr);
+
+  // ── User taps ─────────────────────────────────────────────────────────────
+  if (relPositions && relPositions.length > 0) {
+    relPositions.forEach((rel, i) => {
+      const x     = tapStart + rel * tapWidth;
+      const color = scoreColors ? scoreColors[i] : 'rgba(168,154,249,0.9)';
+      ctx.shadowColor = color;
+      ctx.shadowBlur  = 6 * dpr;
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 2.5 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(x, userMidY - userTickH / 2);
+      ctx.lineTo(x, userMidY + userTickH / 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  // ── Target positions (shown only after scoring) ───────────────────────────
+  if (showTarget) {
+    targetRel.forEach(rel => {
+      const x = tapStart + rel * tapWidth;
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth   = 2 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(x, targetZoneY - targetTickH / 2);
+      ctx.lineTo(x, targetZoneY + targetTickH / 2);
+      ctx.stroke();
+    });
+  }
 }
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
@@ -716,7 +728,7 @@ function finishRecording() {
   const score     = scoreAttempt(targetRel, userRel);
   const colors    = tapColors(targetRel, userRel);
 
-  drawUserTaps(userRel, colors);
+  drawUserTaps(userRel, colors, targetRel);
   showScore(score);
   setStatus('done', 'Tap to retry · Next for a new pattern');
   btnSub.textContent = 'retry or press space';
