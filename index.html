@@ -85,7 +85,7 @@
     overflow: hidden;
     margin-bottom: 12px;
     position: relative;
-    min-height: 130px;
+    height: 160px;
   }
 
   /* VexFlow renders black on transparent — invert gives white on transparent */
@@ -255,9 +255,7 @@
 <script>
 const VF = Vex.Flow;
 
-// ─── Pattern definitions ─────────────────────────────────────────────────────
-// n(duration, dotted, rest)  — durations follow VexFlow: 'w','h','q','8','16'
-// Each pattern MUST sum to exactly 4 beats.
+// ─── Note helpers ─────────────────────────────────────────────────────────────
 const n = (dur, dot = false, rest = false) => ({ dur, dot, rest });
 const r = (dur, dot = false) => n(dur, dot, true);
 
@@ -267,52 +265,62 @@ function noteBeats({ dur, dot }) {
   return dot ? b * 1.5 : b;
 }
 
-const PATTERNS = {
-  easy: [
-    [n('q'), n('q'), n('q'), n('q')],
-    [n('h'), n('q'), n('q')],
-    [n('h'), n('h')],
-    [n('h', true), n('q')],            // dotted half + quarter  (3+1=4)
-    [r('q'), n('q'), n('q'), n('q')],  // rest + 3 quarters
-    [n('w')],
-    [n('q'), n('h'), n('q')],
-    [n('q'), n('q'), n('h')],
-  ],
-  medium: [
-    [n('8'), n('8'), n('q'), n('q'), n('q')],                             // 4
-    [n('q', true), n('8'), n('h')],                                        // 1.5+0.5+2=4
-    [n('8'), n('8'), n('8'), n('8'), n('8'), n('8'), n('8'), n('8')],     // all eighths
-    [r('8'), n('8'), n('q'), n('q'), n('q')],                              // 4
-    [n('8'), n('8'), n('8'), n('8'), n('h')],                              // 4
-    [n('q'), n('8'), n('8'), n('8'), n('8'), n('q')],                     // 1+0.5*4+1=4
-    [n('h', true), n('8'), n('8')],                                        // 3+0.5+0.5=4
-  ],
-  hard: [
-    [n('16'), n('16'), n('16'), n('16'), n('q'), n('q'), n('q')],          // 1+3=4
-    [n('q', true), n('8'), n('q'), n('8'), n('8')],                        // 1.5+0.5+1+0.5+0.5=4
-    [n('8'), n('8'), n('q'), n('8'), n('8'), n('8'), n('8')],              // 4
-    [n('16'), n('16'), n('8'), n('q'), n('h')],                            // 0.25+0.25+0.5+1+2=4
-    [n('8'), r('8'), n('8'), r('8'), n('q'), n('q')],                      // offbeat eighths
-    [n('16'),n('16'),n('16'),n('16'),n('8'),n('8'),n('q'),n('q')],        // 4
-  ],
-  pro: [
-    [n('16'),n('16'),n('16'),n('16'),n('16'),n('16'),n('16'),n('16'),n('h')], // 2+2=4
-    [n('q', true), n('8'), n('q', true), n('8')],                           // 1.5+0.5+1.5+0.5=4
-    [r('8'), n('8'), r('8'), n('8'), r('8'), n('8'), r('8'), n('8')],       // all offbeats
-    [n('16'), n('8'), n('16'), n('q'), n('q'), n('q')],                     // 0.25+0.5+0.25+3=4
-    [n('8'),n('16'),n('16'),n('8'),n('16'),n('16'),n('q'),n('q')],         // 4
-    [n('q',true),n('16'),n('16'),n('8'),n('q'),n('q')],                    // 1.5+0.25+0.25+0.5+1+0.5=4
-  ],
-};
+// ─── Random pattern generator ─────────────────────────────────────────────────
+// Builds measures by randomly combining beat-aligned "cells".
+function generatePattern(level) {
+  const rnd = arr => arr[Math.floor(Math.random() * arr.length)];
 
-// Sanity check patterns sum to 4 beats
-Object.entries(PATTERNS).forEach(([level, list]) => {
-  list.forEach((p, i) => {
-    const sum = p.reduce((a, note) => a + noteBeats(note), 0);
-    if (Math.abs(sum - 4) > 0.001)
-      console.warn(`Pattern ${level}[${i}] sums to ${sum}, expected 4`);
-  });
-});
+  // Cells filling exactly 1 beat
+  function cell1() {
+    const base = [[n('q')]];
+    const med  = [...base, [n('8'),n('8')], [n('8'),n('8')]];
+    const hard = [...med,
+      [n('16'),n('16'),n('8')], [n('8'),n('16'),n('16')],
+      [n('16'),n('16'),n('16'),n('16')]];
+    const pro  = [...hard,
+      [r('8'),n('8')], [n('8'),r('16'),n('16')], [r('16'),n('16'),n('8')]];
+    return rnd({ easy: base, medium: med, hard, pro }[level]);
+  }
+
+  // Cells filling exactly 2 beats
+  function cell2() {
+    const base = [[n('h')], [n('q'),n('q')]];
+    const med  = [...base, [n('q',true),n('8')], [n('8'),n('8'),n('8'),n('8')]];
+    const hard = [...med,
+      [n('8'),n('q'),n('8')], [n('16'),n('16'),n('8'),n('q')]];
+    const pro  = [...hard,
+      [r('8'),n('8'),n('q')], [n('q'),n('16'),n('16'),n('8')]];
+    return rnd({ easy: base, medium: med, hard, pro }[level]);
+  }
+
+  // Cells filling exactly 3 beats
+  function cell3() {
+    const base = [[n('h',true)], [n('h'),n('q')], [n('q'),n('h')]];
+    if (level === 'easy') return rnd(base);
+    return rnd([...base, [...cell2(), ...cell1()], [...cell1(), ...cell2()]]);
+  }
+
+  // Choose a beat partition of 4, then fill each segment
+  const partitions = {
+    easy:   [[4],[2,2],[2,2],[1,1,2],[2,1,1],[1,1,1,1]],
+    medium: [[2,2],[2,2],[1,1,2],[2,1,1],[1,2,1],[1,1,1,1],[1,1,1,1]],
+    hard:   [[2,2],[1,1,2],[2,1,1],[1,2,1],[1,1,1,1],[1,1,1,1]],
+    pro:    [[1,1,1,1],[1,1,1,1],[1,1,2],[2,1,1],[1,2,1]],
+  };
+  const partition = rnd(partitions[level]);
+
+  const notes = [];
+  for (const beats of partition) {
+    if (beats === 4) notes.push(n('w'));
+    else if (beats === 3) notes.push(...cell3());
+    else if (beats === 2) notes.push(...cell2());
+    else                  notes.push(...cell1());
+  }
+
+  // Never start on a rest (confuses the "first tap = position 0" anchor)
+  if (notes[0].rest) return generatePattern(level);
+  return notes;
+}
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let currentLevel = 'easy';
@@ -344,7 +352,7 @@ function renderNotation(pattern) {
   notationBox.innerHTML = '';
 
   const containerW = notationBox.offsetWidth || 640;
-  const H = 130;
+  const H = 160;
 
   const renderer = new VF.Renderer(notationBox, VF.Renderer.Backends.SVG);
   renderer.resize(containerW, H);
@@ -354,11 +362,10 @@ function renderNotation(pattern) {
 
   const margin = 10;
   const totalW = containerW - margin * 2;
-  // Give bar 1 ~70% of space, bar 2 (whole note) ~30%
   const b1W = Math.round(totalW * 0.70);
   const b2W = totalW - b1W;
-  // Push stave down so stems (which extend ~35px above notehead on b/4) aren't clipped
-  const staveY = 48;
+  // staveY: leave ~50px above for stems, 40px stave body, 70px below
+  const staveY = 50;
 
   // Bar 1
   const stave1 = new VF.Stave(margin, staveY, b1W);
@@ -496,15 +503,20 @@ function drawUserTaps(relPositions, scoreColors) {
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
 function patternToRelative(pattern) {
-  // Positions 0–1 across bar 1; 1.0 = start of bar 2 (the whole note)
-  const positions = [];
+  // Collect beat positions of non-rest notes + the whole note anchor at beat 4.
+  // Normalize so first note = 0.0 and whole note = 1.0, which handles patterns
+  // that begin with rests gracefully.
+  const times = [];
   let pos = 0;
   pattern.forEach(note => {
-    if (!note.rest) positions.push(pos / 4);
+    if (!note.rest) times.push(pos);
     pos += noteBeats(note);
   });
-  positions.push(1.0); // whole note anchor at bar 2
-  return positions;
+  times.push(4); // whole note at start of bar 2
+
+  const start = times[0];
+  const range = times[times.length - 1] - start; // always > 0
+  return times.map(t => (t - start) / range);
 }
 
 function inferRelative(times) {
@@ -592,8 +604,7 @@ function hideScore() {
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 function pickPattern() {
-  const pool = PATTERNS[currentLevel];
-  return pool[Math.floor(Math.random() * pool.length)];
+  return generatePattern(currentLevel);
 }
 
 function loadPattern(pattern) {
