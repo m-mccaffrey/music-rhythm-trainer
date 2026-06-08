@@ -613,10 +613,10 @@ function inferRelative(times) {
   return times.map(t => (t - times[0]) / total);
 }
 
-function scoreAttempt(targetRel, userRel) {
+function scoreAttempt(targetRel, userRel, tapSpanMs) {
   if (!userRel.length) return 0;
   const used = new Set();
-  let totalErr = 0;
+  let totalErrMs = 0;
   let matched = 0;
 
   targetRel.forEach(t => {
@@ -626,22 +626,25 @@ function scoreAttempt(targetRel, userRel) {
       const d = Math.abs(t - u);
       if (d < best) { best = d; bestIdx = i; }
     });
-    if (bestIdx >= 0) { used.add(bestIdx); totalErr += best; matched++; }
+    if (bestIdx >= 0) { used.add(bestIdx); totalErrMs += best * tapSpanMs; matched++; }
   });
 
-  const extra   = userRel.length - matched;
-  const missing = targetRel.length - matched;
-  const avgErr  = matched > 0 ? totalErr / matched : 1;
+  const extra      = userRel.length - matched;
+  const missing    = targetRel.length - matched;
+  const avgErrMs   = matched > 0 ? totalErrMs / matched : 1000;
 
-  return Math.round(Math.max(0, 1 - avgErr * 6 - extra * 0.04 - missing * 0.08) * 100);
+  // Fixed ms thresholds — scoring is tempo-agnostic
+  // 0ms → 100, ~80ms → 73, ~160ms → 47, ~300ms → 0
+  const rhythmScore = Math.max(0, 1 - avgErrMs / 300);
+  return Math.round(Math.max(0, rhythmScore - extra * 0.04 - missing * 0.08) * 100);
 }
 
-// Map each user tap to a color based on distance to nearest target
-function tapColors(targetRel, userRel) {
+// Map each user tap to a color based on absolute ms distance to nearest target
+function tapColors(targetRel, userRel, tapSpanMs) {
   return userRel.map(u => {
-    const nearest = Math.min(...targetRel.map(t => Math.abs(t - u)));
-    if (nearest < 0.04)  return '#4ade80';
-    if (nearest < 0.09)  return '#facc15';
+    const nearestMs = Math.min(...targetRel.map(t => Math.abs(t - u))) * tapSpanMs;
+    if (nearestMs < 60)   return '#4ade80';
+    if (nearestMs < 130)  return '#facc15';
     return '#f87171';
   });
 }
@@ -742,10 +745,11 @@ function finishRecording() {
     return;
   }
 
+  const tapSpanMs = tapTimes[tapTimes.length - 1] - tapTimes[0];
   const userRel   = inferRelative(tapTimes);
   const targetRel = patternToRelative(currentPattern);
-  const score     = scoreAttempt(targetRel, userRel);
-  const colors    = tapColors(targetRel, userRel);
+  const score     = scoreAttempt(targetRel, userRel, tapSpanMs);
+  const colors    = tapColors(targetRel, userRel, tapSpanMs);
 
   drawUserTaps(userRel, colors, targetRel);
   showScore(score);
@@ -792,9 +796,10 @@ document.querySelectorAll('.diff-btn').forEach(btn => {
 window.addEventListener('resize', () => {
   renderNotation(currentPattern);
   if (tapTimes.length > 1) {
+    const spanMs = tapTimes[tapTimes.length - 1] - tapTimes[0];
     const rel    = inferRelative(tapTimes);
     const target = patternToRelative(currentPattern);
-    const cols   = state === 'done' ? tapColors(target, rel) : null;
+    const cols   = state === 'done' ? tapColors(target, rel, spanMs) : null;
     drawUserTaps(rel, cols);
   } else {
     drawUserTaps(null);
