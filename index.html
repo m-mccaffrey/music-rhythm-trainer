@@ -426,20 +426,29 @@ function renderNotation(pattern) {
   // Build VexFlow notes for bar 1; collect triplet groups as we go
   const vfNotes1 = [];
   const tuplets  = [];
+  const tripletBeams = [];       // beams for triplet groups (8th/16th only)
+  const tripletNoteSet = new Set(); // excluded from generateBeams
   let pi = 0;
   while (pi < pattern.length) {
     const spec = pattern[pi];
     if (spec.triplet) {
       // Gather up to 3 consecutive triplet notes into one Tuplet
       const group = [];
+      const groupDur = spec.dur; // all notes in a triplet group share the same duration
       while (pi < pattern.length && pattern[pi].triplet && group.length < 3) {
         const s = pattern[pi];
         const vfNote = new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: s.rest ? s.dur + 'r' : s.dur });
         group.push(vfNote);
         vfNotes1.push(vfNote);
+        tripletNoteSet.add(vfNote);
         pi++;
       }
       tuplets.push(new VF.Tuplet(group)); // created before formatting so ticks are adjusted
+      // Beam 8th/16th triplet groups manually — generateBeams doesn't know about triplet boundaries
+      if (groupDur === '8' || groupDur === '16') {
+        const nonRest = group.filter(n => !n.isRest());
+        if (nonRest.length >= 2) tripletBeams.push(new VF.Beam(nonRest));
+      }
     } else {
       const durStr = spec.rest ? spec.dur + 'r' : spec.dur;
       const vfNote = new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: durStr });
@@ -453,7 +462,8 @@ function renderNotation(pattern) {
   const vfNotes2 = [new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: 'w' })];
 
   // Create beams BEFORE formatting — sets stem directions
-  const beams = VF.Beam.generateBeams(vfNotes1.filter(note => !note.isRest()));
+  // Exclude triplet notes: their beams are created manually per-group above
+  const beams = VF.Beam.generateBeams(vfNotes1.filter(note => !note.isRest() && !tripletNoteSet.has(note)));
 
   const voice1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice1.addTickables(vfNotes1);
@@ -469,7 +479,7 @@ function renderNotation(pattern) {
 
   voice1.draw(ctx, stave1);
   voice2.draw(ctx, stave2);
-  beams.forEach(b => b.setContext(ctx).draw());
+  [...beams, ...tripletBeams].forEach(b => b.setContext(ctx).draw());
   tuplets.forEach(t => t.setContext(ctx).draw());
 
   // Record bar 1 layout for user-canvas alignment
