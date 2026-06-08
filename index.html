@@ -85,7 +85,7 @@
     overflow: hidden;
     margin-bottom: 12px;
     position: relative;
-    min-height: 90px;
+    min-height: 130px;
   }
 
   /* VexFlow renders black on transparent — invert gives white on transparent */
@@ -344,8 +344,7 @@ function renderNotation(pattern) {
   notationBox.innerHTML = '';
 
   const containerW = notationBox.offsetWidth || 640;
-  const H = 90;
-  const dpr = window.devicePixelRatio || 1;
+  const H = 130;
 
   const renderer = new VF.Renderer(notationBox, VF.Renderer.Backends.SVG);
   renderer.resize(containerW, H);
@@ -358,7 +357,8 @@ function renderNotation(pattern) {
   // Give bar 1 ~70% of space, bar 2 (whole note) ~30%
   const b1W = Math.round(totalW * 0.70);
   const b2W = totalW - b1W;
-  const staveY = 14;
+  // Push stave down so stems (which extend ~35px above notehead on b/4) aren't clipped
+  const staveY = 48;
 
   // Bar 1
   const stave1 = new VF.Stave(margin, staveY, b1W);
