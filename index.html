@@ -88,26 +88,12 @@
     min-height: 90px;
   }
 
-  /* Make VexFlow SVG inherit theme colors */
+  /* VexFlow renders black on transparent — invert gives white on transparent */
   .notation-box svg {
     display: block;
     width: 100%;
+    filter: invert(1);
   }
-  .notation-box svg * {
-    fill: var(--text);
-    stroke: var(--text);
-  }
-  /* Rests and filled noteheads should be solid fill, not stroked */
-  .notation-box svg path { stroke: none; fill: var(--text); }
-  .notation-box svg rect { stroke: var(--text); fill: var(--text); }
-  /* Stave lines */
-  .notation-box svg line { stroke: var(--text); stroke-opacity: 0.35; fill: none; }
-  /* Text (time sig, dynamics) */
-  .notation-box svg text { fill: var(--text); stroke: none; }
-  /* Beams */
-  .notation-box svg .vf-beam path { fill: var(--text); stroke: none; }
-  /* Barlines */
-  .notation-box svg .vf-barline path { fill: var(--text); stroke: none; }
 
   /* User tap canvas */
   #userCanvas {
@@ -264,7 +250,7 @@
   <button class="ctrl-btn primary" id="nextBtn">Next →</button>
 </div>
 
-<p class="hint">Match the rhythm above · your tempo doesn't matter, only the proportions do</p>
+<p class="hint">Tap bar 1's rhythm, then tap once for the whole note · tempo doesn't matter, only proportions do</p>
 
 <script>
 const VF = Vex.Flow;
@@ -398,14 +384,16 @@ function renderNotation(pattern) {
   // Whole note for bar 2
   const vfNotes2 = [new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: 'w' })];
 
+  // Create beams BEFORE formatting — this sets stem directions on the notes
+  const beams = VF.Beam.generateBeams(vfNotes1.filter(note => !note.isRest()));
+
   const voice1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice1.addTickables(vfNotes1);
 
   const voice2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice2.addTickables(vfNotes2);
 
-  // Stave intrinsics (clef + time sig) take up some space; estimate padding
-  const b1NoteArea = b1W - 52; // rough space consumed by clef+timesig
+  const b1NoteArea = b1W - 52;
   const b2NoteArea = b2W - 16;
 
   new VF.Formatter().joinVoices([voice1]).format([voice1], b1NoteArea);
@@ -413,10 +401,6 @@ function renderNotation(pattern) {
 
   voice1.draw(ctx, stave1);
   voice2.draw(ctx, stave2);
-
-  // Auto-beam eighth/sixteenth notes in bar 1
-  const beamable = vfNotes1.filter(n => !n.isRest());
-  const beams = VF.Beam.generateBeams(beamable);
   beams.forEach(b => b.setContext(ctx).draw());
 
   // Record bar 1 layout for user-canvas alignment
@@ -443,74 +427,94 @@ function drawUserTaps(relPositions, scoreColors) {
 
   ctx.clearRect(0, 0, W, H);
 
-  const notationContainerW = notationBox.offsetWidth;
-  const canvasW = userCanvas.offsetWidth;
+  const notationW  = notationBox.offsetWidth;
+  const canvasW    = userCanvas.offsetWidth;
+  const scaleX     = canvasW / notationW;
 
-  // Map bar1 pixel layout to canvas coordinate space
-  // bar1PixelStart and bar1PixelWidth are in CSS px of the notation box
-  const scaleX = canvasW / notationContainerW;
-  const tapAreaStart = bar1PixelStart * scaleX * dpr;
-  const tapAreaWidth = bar1PixelWidth * scaleX * dpr;
+  // bar 1 note area in canvas pixels
+  const tapStart = bar1PixelStart * scaleX * dpr;
+  const tapWidth = bar1PixelWidth * scaleX * dpr;
+  // bar 2 extends to end of notation
+  const bar2End  = notationW * scaleX * dpr - 10 * scaleX * dpr;
 
-  const midY = H / 2;
+  const midY  = H / 2;
   const tickH = H * 0.55;
 
-  // Draw baseline
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  // Bar 1 baseline (solid)
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
   ctx.lineWidth = dpr;
   ctx.beginPath();
-  ctx.moveTo(tapAreaStart, midY);
-  ctx.lineTo(tapAreaStart + tapAreaWidth, midY);
+  ctx.moveTo(tapStart, midY);
+  ctx.lineTo(tapStart + tapWidth, midY);
   ctx.stroke();
 
-  // Endpoint marks
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  // Bar 2 baseline (dimmer — reference only)
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.beginPath();
+  ctx.moveTo(tapStart + tapWidth, midY);
+  ctx.lineTo(bar2End, midY);
+  ctx.stroke();
+
+  // Start barline
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
   ctx.lineWidth = 1.5 * dpr;
-  [tapAreaStart, tapAreaStart + tapAreaWidth].forEach(x => {
-    ctx.beginPath();
-    ctx.moveTo(x, midY - H * 0.32);
-    ctx.lineTo(x, midY + H * 0.32);
-    ctx.stroke();
-  });
+  ctx.beginPath();
+  ctx.moveTo(tapStart, midY - H * 0.32);
+  ctx.lineTo(tapStart, midY + H * 0.32);
+  ctx.stroke();
+
+  // Middle barline (= position 1.0, where whole note falls)
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 2 * dpr;
+  const barlineX = tapStart + tapWidth;
+  ctx.beginPath();
+  ctx.moveTo(barlineX, midY - H * 0.38);
+  ctx.lineTo(barlineX, midY + H * 0.38);
+  ctx.stroke();
+  // Double barline
+  ctx.lineWidth = dpr;
+  ctx.beginPath();
+  ctx.moveTo(barlineX + 3 * dpr, midY - H * 0.38);
+  ctx.lineTo(barlineX + 3 * dpr, midY + H * 0.38);
+  ctx.stroke();
 
   if (!relPositions || relPositions.length === 0) return;
 
   relPositions.forEach((rel, i) => {
-    const x = tapAreaStart + rel * tapAreaWidth;
+    const x     = tapStart + rel * tapWidth;
     const color = scoreColors ? scoreColors[i] : 'rgba(168,154,249,0.9)';
 
-    // Glow
     ctx.shadowColor = color;
-    ctx.shadowBlur = 6 * dpr;
-
+    ctx.shadowBlur  = 6 * dpr;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5 * dpr;
+    ctx.lineWidth   = 2.5 * dpr;
     ctx.beginPath();
     ctx.moveTo(x, midY - tickH / 2);
     ctx.lineTo(x, midY + tickH / 2);
     ctx.stroke();
-
     ctx.shadowBlur = 0;
   });
 }
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
 function patternToRelative(pattern) {
+  // Positions 0–1 across bar 1; 1.0 = start of bar 2 (the whole note)
   const positions = [];
   let pos = 0;
   pattern.forEach(note => {
     if (!note.rest) positions.push(pos / 4);
     pos += noteBeats(note);
   });
+  positions.push(1.0); // whole note anchor at bar 2
   return positions;
 }
 
 function inferRelative(times) {
+  // First tap = 0, last tap = 1.0 (the whole note anchor)
   if (times.length < 2) return [0];
-  const span = times[times.length - 1] - times[0];
-  const lastGap = times[times.length - 1] - times[times.length - 2];
-  const estimated = span + lastGap * 0.5;
-  return times.map(t => (t - times[0]) / estimated);
+  const total = times[times.length - 1] - times[0];
+  if (total === 0) return times.map(() => 0);
+  return times.map(t => (t - times[0]) / total);
 }
 
 function scoreAttempt(targetRel, userRel) {
@@ -601,7 +605,7 @@ function loadPattern(pattern) {
   recordingStart = null;
   clearTimeout(endTimer);
   hideScore();
-  setStatus('waiting', 'Tap to start');
+  setStatus('waiting', 'Tap bar 1 rhythm, then the whole note');
   btnSub.textContent = 'or press space';
 
   renderNotation(pattern);
@@ -636,7 +640,11 @@ function registerTap() {
 }
 
 function armEndTimer() {
-  const ms = { easy: 1800, medium: 1600, hard: 1400, pro: 1200 }[currentLevel];
+  // If user has tapped the expected count (bar 1 notes + whole note), finish quickly
+  const expected = patternToRelative(currentPattern).length;
+  const ms = tapTimes.length >= expected
+    ? 500
+    : { easy: 2000, medium: 1800, hard: 1500, pro: 1300 }[currentLevel];
   endTimer = setTimeout(finishRecording, ms);
 }
 
