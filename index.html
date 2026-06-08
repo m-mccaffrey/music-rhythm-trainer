@@ -328,7 +328,6 @@ let currentPattern = null;
 let state = 'idle';
 let tapTimes = [];
 let recordingStart = null;
-let endTimer = null;
 
 // VexFlow measure layout info (set when rendering, used to align user canvas)
 let bar1PixelStart = 0; // x offset (in CSS px) where bar 1 notes start
@@ -612,7 +611,6 @@ function loadPattern(pattern) {
   state = 'idle';
   tapTimes = [];
   recordingStart = null;
-  clearTimeout(endTimer);
   hideScore();
   setStatus('waiting', 'Tap bar 1 rhythm, then the whole note');
   btnSub.textContent = 'or press space';
@@ -636,25 +634,16 @@ function registerTap() {
     startRecording();
     tapTimes.push(0);
     drawUserTaps([0]);
-    armEndTimer();
     return;
   }
   if (state === 'recording') {
     const t = performance.now() - recordingStart;
     tapTimes.push(t);
-    clearTimeout(endTimer);
-    armEndTimer();
     drawUserTaps(inferRelative(tapTimes));
+    if (tapTimes.length === patternToRelative(currentPattern).length) {
+      finishRecording();
+    }
   }
-}
-
-function armEndTimer() {
-  // If user has tapped the expected count (bar 1 notes + whole note), finish quickly
-  const expected = patternToRelative(currentPattern).length;
-  const ms = tapTimes.length >= expected
-    ? 500
-    : { easy: 2000, medium: 1800, hard: 1500, pro: 1300 }[currentLevel];
-  endTimer = setTimeout(finishRecording, ms);
 }
 
 function finishRecording() {
