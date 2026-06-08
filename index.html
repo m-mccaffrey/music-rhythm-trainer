@@ -289,14 +289,18 @@ function generatePattern(level) {
       [n('16'), n('16'), n('16'), n('16')],
       [nt('8'), nt('8'), nt('8')],
       [nt('8'), nt('8'), nt('8')],  // extra weight
+      [n('8'), nt('16'), nt('16'), nt('16')],
+      [nt('16'), nt('16'), nt('16'), n('8')],
     ];
     const pro = [
       [n('16'), n('16'), n('16'), n('16')],
       [nt('8'), nt('8'), nt('8')],
       [nt('8'), nt('8'), nt('8')],
       [r('8'), n('8')],
-      [nt('8', true), nt('8'), nt('8')],   // triplet rest then two notes
       [n('16'), r('16'), n('16'), n('16')],
+      [n('8'), nt('16'), nt('16'), nt('16')],
+      [nt('16'), nt('16'), nt('16'), n('8')],
+      [nt('16'), nt('16'), nt('16'), n('8')],  // extra weight
     ];
     return rnd({ easy, medium, hard, pro }[level]);
   }
@@ -320,14 +324,19 @@ function generatePattern(level) {
       [n('16'), n('16'), n('8'), n('q')],
       [nt('8'), nt('8'), nt('8'), n('q')],
       [n('q'), nt('8'), nt('8'), nt('8')],
+      [nt('q'), nt('q'), nt('q')],
     ];
     const pro = [
       [nt('8'), nt('8'), nt('8'), n('q')],
       [n('q'), nt('8'), nt('8'), nt('8')],
-      [nt('8'), nt('8'), nt('8'), nt('8'), nt('8'), nt('8')], // two triplet groups
+      [nt('8'), nt('8'), nt('8'), nt('8'), nt('8'), nt('8')],
       [n('16'), n('16'), n('16'), n('16'), n('8'), n('8')],
-      [r('8'), nt('8'), nt('8'), nt('8'), n('8')],            // 0.5 + 1 + 0.5 = 2
-      [n('8'), n('16'), n('16'), nt('8'), nt('8'), nt('8')],  // 0.5+0.5+1 = 2
+      [r('8'), nt('8'), nt('8'), nt('8'), n('8')],
+      [n('8'), n('16'), n('16'), nt('8'), nt('8'), nt('8')],
+      [nt('q'), nt('q'), nt('q')],
+      [nt('q'), nt('q'), nt('q')],                                       // extra weight
+      [n('q'), n('8'), nt('16'), nt('16'), nt('16')],
+      [nt('16'), nt('16'), nt('16'), n('8'), n('q')],
     ];
     return rnd({ easy, medium, hard, pro }[level]);
   }
