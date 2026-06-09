@@ -191,7 +191,7 @@
   #ghCanvas {
     display: none;
     width: 100%;
-    height: 180px;
+    height: 130px;
     border-radius: 8px;
     background: var(--surface);
     margin-bottom: 8px;
@@ -212,7 +212,7 @@
 <div class="notation-wrap" id="notationWrap">
   <div class="row-label">Target rhythm</div>
   <div class="notation-box" id="notationBox"></div>
-  <div class="row-label">Your taps</div>
+  <div class="row-label" id="tapsLabel">Your taps</div>
   <canvas id="userCanvas"></canvas>
 </div>
 
@@ -546,7 +546,8 @@ function ghFinish() {
 }
 
 function ghEnter() {
-  notationWrap.style.display = 'none';
+  document.getElementById('tapsLabel').style.display = 'none';
+  userCanvas.style.display = 'none';
   ghCanvas.style.display = 'block';
   ghTargetRel = patternToRelative(currentPattern);
   ghPhase = 'idle';
@@ -554,11 +555,13 @@ function ghEnter() {
   cancelAnimationFrame(ghAnimId);
   btnSub.textContent = 'tap twice to set tempo';
   hideScore();
+  renderNotation(currentPattern);
   ghDraw(performance.now());
 }
 
 function ghExit() {
-  notationWrap.style.display = '';
+  document.getElementById('tapsLabel').style.display = '';
+  userCanvas.style.display = '';
   ghCanvas.style.display = 'none';
   cancelAnimationFrame(ghAnimId);
 }
