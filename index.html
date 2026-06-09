@@ -64,6 +64,7 @@
   .diff-btn:hover { border-color: var(--accent); color: var(--text); }
   .diff-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+  /* ── Notation area ──────────────────────────────────────────────── */
   .notation-wrap {
     width: 100%;
     max-width: 680px;
@@ -84,15 +85,17 @@
     overflow: hidden;
     margin-bottom: 12px;
     position: relative;
-    height: 160px;
+    height: 120px;
   }
 
+  /* VexFlow renders black on transparent — invert gives white on transparent */
   .notation-box svg {
     display: block;
     width: 100%;
     filter: invert(1);
   }
 
+  /* User tap canvas */
   #userCanvas {
     display: block;
     width: 100%;
@@ -101,6 +104,7 @@
     background: var(--surface);
   }
 
+  /* ── Score area ──────────────────────────────────────────────── */
   .score-area {
     width: 100%;
     max-width: 680px;
@@ -122,6 +126,7 @@
   .score-value { font-size: 2.8rem; font-weight: 700; line-height: 1; margin-bottom: 2px; }
   .score-label { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
 
+  /* ── Status pill ──────────────────────────────────────────────── */
   .status-pill {
     display: inline-flex;
     align-items: center;
@@ -136,7 +141,7 @@
   }
   .status-pill.waiting  { border-color: var(--border); color: var(--text-dim); }
   .status-pill.recording { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.1); }
-  .status-pill.done     { border-color: var(--border); color: var(--text-dim); }
+  .status-pill.done     { display: none; margin: 0; }
 
   .pulse-dot {
     width: 6px; height: 6px; border-radius: 50%;
@@ -145,6 +150,7 @@
   }
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
 
+  /* ── Tap button ──────────────────────────────────────────────── */
   .tap-btn {
     width: 110px; height: 110px;
     border-radius: 50%;
@@ -178,6 +184,7 @@
   }
   .tap-btn.pressed .tap-btn-sub { color: rgba(255,255,255,0.7); }
 
+  /* ── Controls ──────────────────────────────────────────────── */
   .controls-row {
     display: flex;
     gap: 12px;
@@ -248,6 +255,7 @@
 <script>
 const VF = Vex.Flow;
 
+// ─── Note helpers ────────────────────────────────────────────────────────────────────────────────────
 const n  = (dur, dot = false, rest = false) => ({ dur, dot, rest, triplet: false });
 const nt = (dur, rest = false) => ({ dur, dot: false, rest, triplet: true });
 const r  = (dur, dot = false) => n(dur, dot, true);
@@ -260,11 +268,15 @@ function noteBeats({ dur, dot, triplet }) {
   return b;
 }
 
+// ─── Random pattern generator ──────────────────────────────────────────────────────────────────────────────────────────────
 function generatePattern(level) {
   const rnd = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  // 1-beat cells
   function cell1() {
-    const easy = [[n('q')]];
+    const easy = [
+      [n('q')],
+    ];
     const medium = [
       [n('q')],
       [n('8'), n('8')], [n('8'), n('8')],
@@ -300,8 +312,11 @@ function generatePattern(level) {
     return rnd({ easy, medium, hard, pro }[level]);
   }
 
+  // 2-beat cells
   function cell2() {
-    const easy = [[n('h')], [n('q'), n('q')]];
+    const easy = [
+      [n('h')], [n('q'), n('q')],
+    ];
     const medium = [
       [n('h')],
       [n('q'), n('q')],
@@ -341,6 +356,7 @@ function generatePattern(level) {
     return rnd({ easy, medium, hard, pro }[level]);
   }
 
+  // 3-beat cells
   function cell3() {
     const base = [[n('h', true)], [n('h'), n('q')], [n('q'), n('h')]];
     if (level === 'easy') return rnd(base);
@@ -371,14 +387,17 @@ function generatePattern(level) {
   return notes;
 }
 
+// ─── State ──────────────────────────────────────────────────────────────────────────────────────
 let currentLevel = 'easy';
 let currentPattern = null;
 let state = 'idle';
 let tapTimes = [];
 let recordingStart = null;
+
 let bar1PixelStart = 0;
 let bar1PixelWidth = 0;
 
+// ─── DOM ───────────────────────────────────────────────────────────────────────────────────────
 const notationBox  = document.getElementById('notationBox');
 const userCanvas   = document.getElementById('userCanvas');
 const tapBtn       = document.getElementById('tapBtn');
@@ -391,24 +410,30 @@ const scoreStars   = document.getElementById('scoreStars');
 const retryBtn     = document.getElementById('retryBtn');
 const nextBtn      = document.getElementById('nextBtn');
 
+// ─── Notation rendering ────────────────────────────────────────────────────────────────────────────────────
 function renderNotation(pattern) {
   notationBox.innerHTML = '';
+
   const containerW = notationBox.offsetWidth || 640;
-  const H = 160;
+  const H = 120;
+
   const renderer = new VF.Renderer(notationBox, VF.Renderer.Backends.SVG);
   renderer.resize(containerW, H);
   const ctx = renderer.getContext();
   ctx.setFont('Arial', 10, '');
   ctx.setLineWidth(1.2);
+
   const margin = 10;
   const totalW = containerW - margin * 2;
   const b1W = Math.round(totalW * 0.83);
   const b2W = totalW - b1W;
-  const staveY = 50;
+  const staveY = 22;
 
+  // Bar 1 — no clef, no time signature: maximise note space
   const stave1 = new VF.Stave(margin, staveY, b1W);
   stave1.setContext(ctx).draw();
 
+  // Bar 2 (whole note reference)
   const stave2 = new VF.Stave(margin + b1W, staveY, b2W);
   stave2.setEndBarType(VF.Barline.type.END);
   stave2.setContext(ctx).draw();
@@ -446,14 +471,16 @@ function renderNotation(pattern) {
   }
 
   const vfNotes2 = [new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: 'w' })];
+
   const beams = VF.Beam.generateBeams(vfNotes1.filter(note => !note.isRest() && !tripletNoteSet.has(note)));
 
   const voice1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice1.addTickables(vfNotes1);
+
   const voice2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice2.addTickables(vfNotes2);
 
-  const b1NoteArea = b1W - 12;
+  const b1NoteArea = b1W - 12; // no modifiers, just opening barline padding
   const b2NoteArea = b2W - 16;
 
   new VF.Formatter().joinVoices([voice1]).format([voice1], b1NoteArea);
@@ -468,6 +495,7 @@ function renderNotation(pattern) {
   bar1PixelWidth = b1NoteArea;
 }
 
+// ─── User tap canvas ────────────────────────────────────────────────────────────────────────────────────────────
 function resizeUserCanvas() {
   const rect = userCanvas.parentElement.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -482,13 +510,17 @@ function drawUserTaps(relPositions, scoreColors, targetRel) {
   const ctx = userCanvas.getContext('2d');
   const W = userCanvas.width, H = userCanvas.height;
   const dpr = window.devicePixelRatio || 1;
+
   ctx.clearRect(0, 0, W, H);
+
   const notationW = notationBox.offsetWidth;
   const canvasW   = userCanvas.offsetWidth;
   const scaleX    = canvasW / notationW;
+
   const tapStart = bar1PixelStart * scaleX * dpr;
   const tapWidth = bar1PixelWidth * scaleX * dpr;
   const bar2End  = notationW * scaleX * dpr - 10 * scaleX * dpr;
+
   const showTarget = !!(targetRel && targetRel.length);
   const userZoneH   = showTarget ? H * 0.55 : H;
   const targetZoneY = H * 0.62;
@@ -554,6 +586,7 @@ function drawUserTaps(relPositions, scoreColors, targetRel) {
   }
 }
 
+// ─── Scoring ──────────────────────────────────────────────────────────────────────────────────────────────
 function patternToRelative(pattern) {
   const times = [];
   let pos = 0;
@@ -579,6 +612,7 @@ function scoreAttempt(targetRel, userRel, tapSpanMs) {
   const used = new Set();
   let totalErrMs = 0;
   let matched = 0;
+
   targetRel.forEach(t => {
     let best = Infinity, bestIdx = -1;
     userRel.forEach((u, i) => {
@@ -588,6 +622,7 @@ function scoreAttempt(targetRel, userRel, tapSpanMs) {
     });
     if (bestIdx >= 0) { used.add(bestIdx); totalErrMs += best * tapSpanMs; matched++; }
   });
+
   const extra      = userRel.length - matched;
   const missing    = targetRel.length - matched;
   const avgErrMs   = matched > 0 ? totalErrMs / matched : 1000;
@@ -645,7 +680,9 @@ function hideScore() {
   scoreDisplay.classList.remove('visible');
 }
 
-function pickPattern() { return generatePattern(currentLevel); }
+function pickPattern() {
+  return generatePattern(currentLevel);
+}
 
 function loadPattern(pattern) {
   currentPattern = pattern;
@@ -680,14 +717,19 @@ function registerTap() {
     const t = performance.now() - recordingStart;
     tapTimes.push(t);
     drawUserTaps(inferRelative(tapTimes));
-    if (tapTimes.length === patternToRelative(currentPattern).length) finishRecording();
+    if (tapTimes.length === patternToRelative(currentPattern).length) {
+      finishRecording();
+    }
   }
 }
 
 function finishRecording() {
   if (state !== 'recording') return;
   state = 'done';
-  if (!tapTimes.length) { setStatus('done', 'No taps detected'); return; }
+  if (!tapTimes.length) {
+    setStatus('done', 'No taps detected');
+    return;
+  }
   const tapSpanMs = tapTimes[tapTimes.length - 1] - tapTimes[0];
   const userRel   = inferRelative(tapTimes);
   const targetRel = patternToRelative(currentPattern);
@@ -699,7 +741,11 @@ function finishRecording() {
   btnSub.textContent = 'retry or press space';
 }
 
-function handleTap(e) { e.preventDefault(); tapBtn.classList.add('pressed'); registerTap(); }
+function handleTap(e) {
+  e.preventDefault();
+  tapBtn.classList.add('pressed');
+  registerTap();
+}
 
 tapBtn.addEventListener('mousedown',  handleTap);
 tapBtn.addEventListener('touchstart', handleTap, { passive: false });
@@ -708,14 +754,18 @@ tapBtn.addEventListener('mouseleave', () => tapBtn.classList.remove('pressed'));
 tapBtn.addEventListener('touchend',   () => tapBtn.classList.remove('pressed'));
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !e.repeat) { e.preventDefault(); tapBtn.classList.add('pressed'); registerTap(); }
+  if (e.code === 'Space' && !e.repeat) {
+    e.preventDefault();
+    tapBtn.classList.add('pressed');
+    registerTap();
+  }
 });
 document.addEventListener('keyup', e => {
   if (e.code === 'Space') tapBtn.classList.remove('pressed');
 });
 
-retryBtn.addEventListener('click', () => loadPattern(currentPattern));
-nextBtn.addEventListener('click',  () => loadPattern(pickPattern()));
+retryBtn.addEventListener('click', () => { loadPattern(currentPattern); });
+nextBtn.addEventListener('click',  () => { loadPattern(pickPattern()); });
 
 document.querySelectorAll('.diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -741,5 +791,3 @@ window.addEventListener('resize', () => {
 
 loadPattern(pickPattern());
 </script>
-</body>
-</html>
