@@ -85,7 +85,7 @@
     overflow: hidden;
     margin-bottom: 12px;
     position: relative;
-    height: 160px;
+    height: 120px;
   }
 
   /* VexFlow renders black on transparent — invert gives white on transparent */
@@ -141,7 +141,7 @@
   }
   .status-pill.waiting  { border-color: var(--border); color: var(--text-dim); }
   .status-pill.recording { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.1); }
-  .status-pill.done     { border-color: var(--border); color: var(--text-dim); }
+  .status-pill.done     { display: none; margin: 0; }
 
   .pulse-dot {
     width: 6px; height: 6px; border-radius: 50%;
@@ -415,7 +415,7 @@ function renderNotation(pattern) {
   notationBox.innerHTML = '';
 
   const containerW = notationBox.offsetWidth || 640;
-  const H = 160;
+  const H = 120;
 
   const renderer = new VF.Renderer(notationBox, VF.Renderer.Backends.SVG);
   renderer.resize(containerW, H);
@@ -427,7 +427,7 @@ function renderNotation(pattern) {
   const totalW = containerW - margin * 2;
   const b1W = Math.round(totalW * 0.83);
   const b2W = totalW - b1W;
-  const staveY = 50;
+  const staveY = 22;
 
   // Bar 1 — no clef, no time signature: maximise note space
   const stave1 = new VF.Stave(margin, staveY, b1W);
