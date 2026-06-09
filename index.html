@@ -183,8 +183,19 @@
   .ctrl-btn:hover { border-color: var(--accent); color: var(--text); }
   .ctrl-btn.primary { border-color: var(--accent); color: var(--accent); }
   .ctrl-btn.primary:hover { background: var(--accent); color: #fff; }
+  .ctrl-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.15); }
 
   .hint { font-size: 0.68rem; color: var(--text-dim); letter-spacing: 0.05em; }
+
+  /* ── Guitar Hero canvas ──────────────────────────────────────────── */
+  #ghCanvas {
+    display: none;
+    width: 100%;
+    height: 180px;
+    border-radius: 8px;
+    background: var(--surface);
+    margin-bottom: 8px;
+  }
 </style>
 </head>
 <body>
@@ -198,12 +209,14 @@
   <button class="diff-btn" data-level="pro">Pro</button>
 </div>
 
-<div class="notation-wrap">
+<div class="notation-wrap" id="notationWrap">
   <div class="row-label">Target rhythm</div>
   <div class="notation-box" id="notationBox"></div>
   <div class="row-label">Your taps</div>
   <canvas id="userCanvas"></canvas>
 </div>
+
+<canvas id="ghCanvas"></canvas>
 
 <div class="score-area">
   <div class="score-display" id="scoreDisplay">
@@ -221,6 +234,7 @@
 <div class="controls-row">
   <button class="ctrl-btn" id="retryBtn">Retry</button>
   <button class="ctrl-btn primary" id="nextBtn">Next →</button>
+  <button class="ctrl-btn" id="modeBtn">GH</button>
 </div>
 
 <p class="hint">Tap bar 1’s rhythm, then tap once for the whole note · tempo doesn’t matter, only proportions do</p>
@@ -381,6 +395,173 @@ const scoreLabel   = document.getElementById('scoreLabel');
 const scoreStars   = document.getElementById('scoreStars');
 const retryBtn     = document.getElementById('retryBtn');
 const nextBtn      = document.getElementById('nextBtn');
+const modeBtn      = document.getElementById('modeBtn');
+const notationWrap = document.getElementById('notationWrap');
+const ghCanvas     = document.getElementById('ghCanvas');
+
+// ─── Guitar Hero state ─────────────────────────────────────────────────────────────────
+let ghMode   = false;
+let ghPhase  = 'idle'; // 'cal1' | 'playing' | 'done'
+let ghCal1   = 0;
+let ghMsPerBeat  = 500;
+let ghPlayStart  = 0;
+let ghTargetRel  = [];
+let ghHitErrors  = []; // per-note: null=unhit, number=error ms, GH_WIN=missed
+let ghFlashTime  = 0;
+let ghFlashHit   = false;
+let ghAnimId     = null;
+
+const GH_HIT_X = 0.18;  // hit zone at 18% of canvas width
+const GH_AHEAD = 3.5;   // beats visible ahead of hit zone
+const GH_LEAD  = 2.0;   // beat lead-in after calibration before first note
+const GH_WIN   = 220;   // ±ms tolerance for a hit
+
+// ─── Guitar Hero Mode ─────────────────────────────────────────────────────────────────────────
+function ghArrival(rel) {
+  return ghPlayStart + (GH_LEAD + rel * 4) * ghMsPerBeat;
+}
+
+function ghResizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = ghCanvas.offsetWidth * dpr;
+  const h = ghCanvas.offsetHeight * dpr;
+  if (ghCanvas.width !== w || ghCanvas.height !== h) { ghCanvas.width = w; ghCanvas.height = h; }
+}
+
+function ghDraw(now) {
+  ghResizeCanvas();
+  const ctx = ghCanvas.getContext('2d');
+  const W = ghCanvas.width, H = ghCanvas.height, dpr = window.devicePixelRatio || 1;
+  const hitX = W * GH_HIT_X, trackY = H * 0.5, noteH = H * 0.44;
+  ctx.clearRect(0, 0, W, H);
+
+  // Track line
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = dpr;
+  ctx.beginPath(); ctx.moveTo(0, trackY); ctx.lineTo(W, trackY); ctx.stroke();
+
+  // Hit zone — flashes green/red on tap, purple otherwise
+  const flashAge = now - ghFlashTime;
+  let hzCol;
+  if (ghFlashTime && flashAge < 280) {
+    const f = 1 - flashAge / 280;
+    hzCol = ghFlashHit ? `rgba(74,222,128,${0.5 + 0.5 * f})` : `rgba(248,113,113,${0.4 + 0.45 * f})`;
+  } else {
+    hzCol = 'rgba(124,106,247,0.65)';
+  }
+  ctx.strokeStyle = hzCol;
+  ctx.lineWidth = 3 * dpr;
+  ctx.beginPath(); ctx.moveTo(hitX, trackY - noteH * 0.6); ctx.lineTo(hitX, trackY + noteH * 0.6); ctx.stroke();
+
+  if (ghPhase === 'idle' || ghPhase === 'cal1') {
+    // Static preview: notes spread proportionally across the track
+    ghTargetRel.forEach(rel => {
+      const x = hitX + (0.08 + rel * 0.84) * (W - hitX);
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath(); ctx.moveTo(x, trackY - noteH * 0.35); ctx.lineTo(x, trackY + noteH * 0.35); ctx.stroke();
+    });
+  } else {
+    // Scrolling notes
+    const pxPerBeat = (W - hitX) / GH_AHEAD;
+    const beatsElapsed = (now - ghPlayStart) / ghMsPerBeat;
+    ghTargetRel.forEach((rel, i) => {
+      const beatsUntil = (GH_LEAD + rel * 4) - beatsElapsed;
+      const x = hitX + beatsUntil * pxPerBeat;
+      if (x > W + 10 * dpr) return;
+      const isHit  = ghHitErrors[i] !== null && ghHitErrors[i] < GH_WIN;
+      const isMiss = ghHitErrors[i] === GH_WIN;
+      if (isMiss && x < hitX - 30 * dpr) return;
+      ctx.strokeStyle = isHit  ? 'rgba(74,222,128,0.75)'
+                      : isMiss ? 'rgba(248,113,113,0.5)'
+                      :          'rgba(255,255,255,0.88)';
+      ctx.lineWidth = 2.5 * dpr;
+      ctx.beginPath(); ctx.moveTo(x, trackY - noteH / 2); ctx.lineTo(x, trackY + noteH / 2); ctx.stroke();
+    });
+  }
+}
+
+function ghRegisterTap(now) {
+  if (ghPhase === 'idle' || ghPhase === 'done') {
+    ghPhase = 'cal1';
+    ghCal1 = now;
+    ghFlashTime = now; ghFlashHit = true;
+    btnSub.textContent = 'tap again — same beat';
+    hideScore();
+    ghDraw(now);
+    return;
+  }
+  if (ghPhase === 'cal1') {
+    ghMsPerBeat = Math.max(100, Math.min(2000, now - ghCal1));
+    ghPlayStart = now;
+    ghPhase = 'playing';
+    ghHitErrors = new Array(ghTargetRel.length).fill(null);
+    ghFlashTime = now; ghFlashHit = true;
+    btnSub.textContent = 'tap the rhythm!';
+    ghAnimate();
+    return;
+  }
+  if (ghPhase === 'playing') {
+    let best = -1, bestDist = GH_WIN;
+    ghTargetRel.forEach((rel, i) => {
+      if (ghHitErrors[i] !== null) return;
+      const d = Math.abs(now - ghArrival(rel));
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    ghFlashTime = now;
+    if (best >= 0) { ghHitErrors[best] = bestDist; ghFlashHit = true; }
+    else { ghFlashHit = false; }
+  }
+}
+
+function ghAnimate() {
+  cancelAnimationFrame(ghAnimId);
+  function frame() {
+    const now = performance.now();
+    // auto-miss notes that passed the window
+    ghTargetRel.forEach((rel, i) => {
+      if (ghHitErrors[i] === null && now - ghArrival(rel) > GH_WIN) ghHitErrors[i] = GH_WIN;
+    });
+    ghDraw(now);
+    const allDone = ghHitErrors.every(e => e !== null);
+    const overtime = now - ghPlayStart > (GH_LEAD + 4 + 1) * ghMsPerBeat;
+    if ((allDone || overtime) && ghPhase === 'playing') {
+      ghTargetRel.forEach((_, i) => { if (ghHitErrors[i] === null) ghHitErrors[i] = GH_WIN; });
+      ghPhase = 'done';
+      setTimeout(ghFinish, 450);
+    } else {
+      ghAnimId = requestAnimationFrame(frame);
+    }
+  }
+  ghAnimId = requestAnimationFrame(frame);
+}
+
+function ghFinish() {
+  cancelAnimationFrame(ghAnimId);
+  const hits = ghHitErrors.filter(e => e < GH_WIN);
+  const avgErr = hits.length ? hits.reduce((a, b) => a + b, 0) / hits.length : GH_WIN;
+  const score = Math.round((hits.length / ghHitErrors.length) * Math.max(0, 1 - avgErr / 150) * 100);
+  showScore(score);
+  btnSub.textContent = 'retry or press space';
+}
+
+function ghEnter() {
+  notationWrap.style.display = 'none';
+  ghCanvas.style.display = 'block';
+  ghTargetRel = patternToRelative(currentPattern);
+  ghPhase = 'idle';
+  ghFlashTime = 0;
+  cancelAnimationFrame(ghAnimId);
+  btnSub.textContent = 'tap twice to set tempo';
+  hideScore();
+  ghDraw(performance.now());
+}
+
+function ghExit() {
+  notationWrap.style.display = '';
+  ghCanvas.style.display = 'none';
+  cancelAnimationFrame(ghAnimId);
+}
 
 // ─── Notation rendering ──────────────────────────────────────────────────────────────────────
 function renderNotation(pattern) {
@@ -655,9 +836,13 @@ function loadPattern(pattern) {
   tapTimes = [];
   recordingStart = null;
   hideScore();
-  btnSub.textContent = 'or press space';
-  renderNotation(pattern);
-  drawUserTaps(null);
+  if (ghMode) {
+    ghEnter();
+  } else {
+    btnSub.textContent = 'or press space';
+    renderNotation(pattern);
+    drawUserTaps(null);
+  }
 }
 
 function startRecording() {
@@ -670,6 +855,7 @@ function startRecording() {
 }
 
 function registerTap() {
+  if (ghMode) { ghRegisterTap(performance.now()); return; }
   if (state === 'idle' || state === 'done') {
     startRecording();
     tapTimes.push(0);
@@ -725,6 +911,12 @@ document.addEventListener('keyup', e => {
 
 retryBtn.addEventListener('click', () => { loadPattern(currentPattern); });
 nextBtn.addEventListener('click',  () => { loadPattern(pickPattern()); });
+modeBtn.addEventListener('click', () => {
+  ghMode = !ghMode;
+  modeBtn.textContent = ghMode ? 'Score' : 'GH';
+  modeBtn.classList.toggle('active', ghMode);
+  if (ghMode) { ghEnter(); } else { ghExit(); loadPattern(currentPattern); }
+});
 
 document.querySelectorAll('.diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -736,6 +928,10 @@ document.querySelectorAll('.diff-btn').forEach(btn => {
 });
 
 window.addEventListener('resize', () => {
+  if (ghMode) {
+    if (ghPhase === 'idle' || ghPhase === 'cal1') { ghResizeCanvas(); ghDraw(performance.now()); }
+    return;
+  }
   renderNotation(currentPattern);
   if (tapTimes.length > 1) {
     const spanMs = tapTimes[tapTimes.length - 1] - tapTimes[0];
