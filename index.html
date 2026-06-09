@@ -407,14 +407,13 @@ function renderNotation(pattern) {
 
   const margin = 10;
   const totalW = containerW - margin * 2;
-  const b1W = Math.round(totalW * 0.70);
+  const b1W = Math.round(totalW * 0.76);
   const b2W = totalW - b1W;
   // staveY: leave ~50px above for stems, 40px stave body, 70px below
   const staveY = 50;
 
-  // Bar 1
+  // Bar 1 — no clef, just time signature
   const stave1 = new VF.Stave(margin, staveY, b1W);
-  stave1.addClef('percussion');
   stave1.addTimeSignature('4/4');
   stave1.setContext(ctx).draw();
 
@@ -471,7 +470,7 @@ function renderNotation(pattern) {
   const voice2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice2.addTickables(vfNotes2);
 
-  const b1NoteArea = b1W - 52;
+  const b1NoteArea = b1W - 30; // time sig only (~30px), no clef overhead
   const b2NoteArea = b2W - 16;
 
   new VF.Formatter().joinVoices([voice1]).format([voice1], b1NoteArea);
@@ -483,8 +482,8 @@ function renderNotation(pattern) {
   tuplets.forEach(t => t.setContext(ctx).draw());
 
   // Record bar 1 layout for user-canvas alignment
-  // The note area starts after clef+timesig padding (≈52px from left edge of stave)
-  bar1PixelStart = margin + 52;
+  // Notes start after time-sig padding (≈30px, no clef)
+  bar1PixelStart = margin + 30;
   bar1PixelWidth = b1NoteArea;
 }
 
