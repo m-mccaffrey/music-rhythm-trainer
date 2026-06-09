@@ -25,12 +25,13 @@
     background: var(--bg);
     color: var(--text);
     font-family: 'Segoe UI', system-ui, sans-serif;
-    min-height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: 16px 20px;
     user-select: none;
   }
 
@@ -40,13 +41,13 @@
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: var(--text-dim);
-    margin-bottom: 28px;
+    margin-bottom: 12px;
   }
 
   .difficulty-row {
     display: flex;
     gap: 8px;
-    margin-bottom: 36px;
+    margin-bottom: 16px;
   }
 
   .diff-btn {
@@ -68,7 +69,7 @@
   .notation-wrap {
     width: 100%;
     max-width: 680px;
-    margin-bottom: 8px;
+    margin-bottom: 0;
   }
 
   .row-label {
@@ -83,9 +84,9 @@
     background: var(--surface);
     border-radius: 8px;
     overflow: hidden;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     position: relative;
-    height: 120px;
+    height: 110px;
   }
 
   /* VexFlow renders black on transparent — invert gives white on transparent */
@@ -99,7 +100,7 @@
   #userCanvas {
     display: block;
     width: 100%;
-    height: 90px;
+    height: 72px;
     border-radius: 8px;
     background: var(--surface);
   }
@@ -108,11 +109,11 @@
   .score-area {
     width: 100%;
     max-width: 680px;
-    min-height: 56px;
+    min-height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 12px 0 24px;
+    margin: 8px 0 8px;
   }
 
   .score-display {
@@ -126,33 +127,9 @@
   .score-value { font-size: 2.8rem; font-weight: 700; line-height: 1; margin-bottom: 2px; }
   .score-label { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
 
-  /* ── Status pill ──────────────────────────────────────────────── */
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 14px;
-    border-radius: 20px;
-    font-size: 0.72rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 24px;
-    border: 1px solid transparent;
-  }
-  .status-pill.waiting  { border-color: var(--border); color: var(--text-dim); }
-  .status-pill.recording { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.1); }
-  .status-pill.done     { display: none; margin: 0; }
-
-  .pulse-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent);
-    animation: pulse 0.8s infinite;
-  }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
-
   /* ── Tap button ──────────────────────────────────────────────── */
   .tap-btn {
-    width: 110px; height: 110px;
+    width: 96px; height: 96px;
     border-radius: 50%;
     border: 2px solid var(--accent);
     background: var(--surface);
@@ -163,7 +140,7 @@
     cursor: pointer;
     transition: background 0.08s, transform 0.08s, box-shadow 0.08s;
     outline: none;
-    margin-bottom: 28px;
+    margin-bottom: 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -189,7 +166,7 @@
     display: flex;
     gap: 12px;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
   }
 
   .ctrl-btn {
@@ -234,10 +211,6 @@
     <div class="score-value" id="scoreValue"></div>
     <div class="score-label" id="scoreLabel"></div>
   </div>
-</div>
-
-<div class="status-pill waiting" id="statusPill">
-  <span id="statusText">Tap to start</span>
 </div>
 
 <button class="tap-btn" id="tapBtn">
@@ -402,7 +375,6 @@ const notationBox  = document.getElementById('notationBox');
 const userCanvas   = document.getElementById('userCanvas');
 const tapBtn       = document.getElementById('tapBtn');
 const btnSub       = document.getElementById('btnSub');
-const statusPill   = document.getElementById('statusPill');
 const scoreDisplay = document.getElementById('scoreDisplay');
 const scoreValue   = document.getElementById('scoreValue');
 const scoreLabel   = document.getElementById('scoreLabel');
@@ -415,7 +387,7 @@ function renderNotation(pattern) {
   notationBox.innerHTML = '';
 
   const containerW = notationBox.offsetWidth || 640;
-  const H = 120;
+  const H = 110;
 
   const renderer = new VF.Renderer(notationBox, VF.Renderer.Backends.SVG);
   renderer.resize(containerW, H);
@@ -659,13 +631,6 @@ function scoreToColor(s) {
   return '#f87171';
 }
 
-function setStatus(mode, text) {
-  statusPill.className = 'status-pill ' + mode;
-  statusPill.innerHTML = mode === 'recording'
-    ? `<div class="pulse-dot"></div><span>${text}</span>`
-    : `<span>${text}</span>`;
-}
-
 function showScore(score) {
   const c = scoreToColor(score);
   scoreStars.textContent = scoreToStars(score);
@@ -690,7 +655,6 @@ function loadPattern(pattern) {
   tapTimes = [];
   recordingStart = null;
   hideScore();
-  setStatus('waiting', 'Tap bar 1 rhythm, then the whole note');
   btnSub.textContent = 'or press space';
   renderNotation(pattern);
   drawUserTaps(null);
@@ -700,7 +664,6 @@ function startRecording() {
   state = 'recording';
   tapTimes = [];
   recordingStart = performance.now();
-  setStatus('recording', 'Recording…');
   btnSub.textContent = 'keep tapping!';
   hideScore();
   drawUserTaps([]);
@@ -726,10 +689,7 @@ function registerTap() {
 function finishRecording() {
   if (state !== 'recording') return;
   state = 'done';
-  if (!tapTimes.length) {
-    setStatus('done', 'No taps detected');
-    return;
-  }
+  if (!tapTimes.length) return;
   const tapSpanMs = tapTimes[tapTimes.length - 1] - tapTimes[0];
   const userRel   = inferRelative(tapTimes);
   const targetRel = patternToRelative(currentPattern);
@@ -737,7 +697,6 @@ function finishRecording() {
   const colors    = tapColors(targetRel, userRel, tapSpanMs);
   drawUserTaps(userRel, colors, targetRel);
   showScore(score);
-  setStatus('done', 'Tap to retry · Next for a new pattern');
   btnSub.textContent = 'retry or press space';
 }
 
@@ -791,3 +750,5 @@ window.addEventListener('resize', () => {
 
 loadPattern(pickPattern());
 </script>
+</body>
+</html>
