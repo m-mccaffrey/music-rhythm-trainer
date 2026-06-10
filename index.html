@@ -184,6 +184,23 @@
   .ctrl-btn.primary:hover { background: var(--accent); color: #fff; }
 
   .hint { font-size: 0.68rem; color: var(--text-dim); letter-spacing: 0.05em; }
+
+  /* ── Mic toggle ──────────────────────────────────────────────── */
+  .mic-btn {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+  .mic-btn:hover { border-color: var(--accent); color: var(--text); }
+  .mic-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .mic-btn.active:hover { background: var(--accent-dim); }
 </style>
 </head>
 <body>
@@ -216,6 +233,8 @@
   <span>TAP</span>
   <span class="tap-btn-sub" id="btnSub">or press space</span>
 </button>
+
+<button class="mic-btn" id="micBtn">🎤 Mic mode</button>
 
 <div class="controls-row">
   <button class="ctrl-btn" id="retryBtn">Retry</button>
@@ -429,6 +448,117 @@ const scoreLabel   = document.getElementById('scoreLabel');
 const scoreStars   = document.getElementById('scoreStars');
 const retryBtn     = document.getElementById('retryBtn');
 const nextBtn      = document.getElementById('nextBtn');
+const micBtn       = document.getElementById('micBtn');
+
+// ─── Mic mode ──────────────────────────────────────────────────────────────────
+let micMode        = false;
+let audioCtx       = null;
+let analyser       = null;
+let micStream      = null;
+let micBuffer      = null;
+let micRafId       = null;
+let micNoiseFloor  = 0.01;
+let micPrevRMS     = 0;
+let micLastHit     = 0;
+let micFlashFrames = 0;
+const MIC_REFRACTORY_MS = 65;
+
+async function ensureMic() {
+  if (audioCtx && audioCtx.state !== 'closed') return;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      video: false,
+    });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0;
+    source.connect(analyser);
+    micBuffer     = new Uint8Array(analyser.fftSize);
+    micNoiseFloor = 0.01;
+    micPrevRMS    = 0;
+    micLastHit    = 0;
+    if (micRafId) cancelAnimationFrame(micRafId);
+    micRafId = requestAnimationFrame(micTick);
+  } catch (err) {
+    micMode = false;
+    micBtn.classList.remove('active');
+    btnSub.textContent = 'mic denied';
+    setTimeout(() => {
+      if (state === 'idle') btnSub.textContent = 'or press space';
+    }, 2000);
+  }
+}
+
+function stopMic() {
+  if (micRafId)  { cancelAnimationFrame(micRafId); micRafId = null; }
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioCtx)  { audioCtx.close(); audioCtx = null; }
+  analyser  = null;
+  micBuffer = null;
+}
+
+function micTick() {
+  micRafId = requestAnimationFrame(micTick);
+  if (!analyser) return;
+
+  analyser.getByteTimeDomainData(micBuffer);
+
+  // RMS of this frame
+  let sum = 0;
+  for (let i = 0; i < micBuffer.length; i++) {
+    const s = (micBuffer[i] - 128) / 128;
+    sum += s * s;
+  }
+  const rms = Math.sqrt(sum / micBuffer.length);
+
+  // Slowly track ambient noise floor
+  micNoiseFloor = micNoiseFloor * 0.995 + rms * 0.005;
+
+  // Onset: sharp energy jump above noise floor
+  const attack    = Math.max(0, rms - micPrevRMS);
+  const threshold = Math.max(0.03, micNoiseFloor * 4);
+  const now       = performance.now();
+  micPrevRMS = rms;
+
+  const hit = state === 'recording'
+           && attack > threshold
+           && rms > 0.018
+           && (now - micLastHit) > MIC_REFRACTORY_MS;
+
+  if (hit) {
+    micLastHit     = now;
+    micFlashFrames = 6;
+    const t = now - recordingStart;
+    tapTimes.push(t);
+    drawUserTaps(inferRelative(tapTimes));
+    if (tapTimes.length === patternToRelative(currentPattern).length) {
+      finishRecording();
+    }
+  }
+
+  if (micFlashFrames > 0) micFlashFrames--;
+  patchMicLevel(rms, micFlashFrames > 0);
+}
+
+// Draws a level-meter strip at the bottom of the tap canvas (non-destructive to tap marks)
+function patchMicLevel(rms, flash) {
+  if (!micMode) return;
+  const dpr  = window.devicePixelRatio || 1;
+  const W    = userCanvas.width;
+  const H    = userCanvas.height;
+  const barH = Math.round(5 * dpr);
+  const barY = H - barH;
+  const ctx2 = userCanvas.getContext('2d');
+  ctx2.clearRect(0, barY, W, barH);
+  ctx2.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx2.fillRect(0, barY, W, barH);
+  const level = Math.min(1, rms / 0.15);
+  ctx2.fillStyle = flash ? '#4ade80' : 'rgba(124,106,247,0.75)';
+  ctx2.fillRect(0, barY, Math.round(level * W), barH);
+}
 
 // ─── Notation rendering ────────────────────────────────────────────────────────
 function renderNotation(pattern) {
@@ -702,7 +832,7 @@ function loadPattern(pattern) {
   tapTimes       = [];
   recordingStart = null;
   hideScore();
-  btnSub.textContent = 'or press space';
+  btnSub.textContent = micMode ? 'tap to listen' : 'or press space';
   renderNotation(pattern);
   drawUserTaps(null);
 }
@@ -748,10 +878,22 @@ function finishRecording() {
 }
 
 // ─── Events ────────────────────────────────────────────────────────────────────
-function handleTap(e) {
+async function activateMicRecording() {
+  if (state === 'idle' || state === 'done') {
+    startRecording();
+    btnSub.textContent = 'listening…';
+    await ensureMic();
+  }
+}
+
+async function handleTap(e) {
   e.preventDefault();
   tapBtn.classList.add('pressed');
-  registerTap();
+  if (micMode) {
+    await activateMicRecording();
+  } else {
+    registerTap();
+  }
 }
 
 tapBtn.addEventListener('mousedown',  handleTap);
@@ -760,15 +902,32 @@ tapBtn.addEventListener('mouseup',    () => tapBtn.classList.remove('pressed'));
 tapBtn.addEventListener('mouseleave', () => tapBtn.classList.remove('pressed'));
 tapBtn.addEventListener('touchend',   () => tapBtn.classList.remove('pressed'));
 
-document.addEventListener('keydown', e => {
+document.addEventListener('keydown', async e => {
   if (e.code === 'Space' && !e.repeat) {
     e.preventDefault();
     tapBtn.classList.add('pressed');
-    registerTap();
+    if (micMode) {
+      await activateMicRecording();
+    } else {
+      registerTap();
+    }
   }
 });
 document.addEventListener('keyup', e => {
   if (e.code === 'Space') tapBtn.classList.remove('pressed');
+});
+
+micBtn.addEventListener('click', async () => {
+  micMode = !micMode;
+  micBtn.classList.toggle('active', micMode);
+  if (micMode) {
+    btnSub.textContent = 'tap to listen';
+    await ensureMic();
+  } else {
+    stopMic();
+    if (state === 'recording') loadPattern(currentPattern);
+    else btnSub.textContent = 'or press space';
+  }
 });
 
 retryBtn.addEventListener('click', () => loadPattern(currentPattern));
