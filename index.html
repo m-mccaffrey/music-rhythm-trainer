@@ -279,6 +279,10 @@ function generatePattern(level) {
       [n('16'), r('16'), n('8')],            // 16th, skip, 8th
       [n('16'), r('8'), n('16')],            // outer 16ths only
       [r('16'), n('16'), r('16'), n('16')],  // off-beats only
+      [nt('8', true), nt('8'), nt('8')],     // triplet: rest-note-note
+      [nt('8'), nt('8', true), nt('8')],     // triplet: note-rest-note
+      [nt('8'), nt('8'), nt('8', true)],     // triplet: note-note-rest
+      [r('8', true), n('16')],               // dotted-8th rest then 16th (0.75+0.25=1)
     ];
     const pro = [
       [n('16'), n('16'), n('16'), n('16')],
@@ -295,6 +299,10 @@ function generatePattern(level) {
       [r('16'), n('16'), r('16'), n('16')],
       [r('8'), n('16'), r('16')],            // one late tap
       [n('16'), r('16'), r('8')],            // one early tap
+      [nt('8', true), nt('8'), nt('8')],     // triplet: rest-note-note
+      [nt('8'), nt('8', true), nt('8')],     // triplet: note-rest-note
+      [nt('8'), nt('8'), nt('8', true)],     // triplet: note-note-rest
+      [r('8', true), n('16')],               // dotted-8th rest then 16th
     ];
     return rnd({ easy, medium, hard, pro }[level]);
   }
@@ -321,6 +329,8 @@ function generatePattern(level) {
       [r('q'), n('8'), n('8')],              // delayed entry
       [n('q'), n('16'), n('16'), n('8')],    // quarter then quick subdivision
       [n('8'), n('8'), r('8'), n('8')],      // syncopated rest on beat 2-and
+      [r('8'), n('8'), r('8'), n('8')],      // off-beats only (0.5×4=2)
+      [n('8'), r('q'), n('8')],              // note–silence–note (0.5+1+0.5=2)
     ];
     const hard = [
       [n('q', true), n('8')],
@@ -336,12 +346,19 @@ function generatePattern(level) {
       [n('q'), nt('8'), nt('8'), nt('8')],
       [nt('q'), nt('q'), nt('q')],
       [r('q'), nt('8'), nt('8'), nt('8')],
-      [n('q', true), n('16'), n('16')],              // dotted quarter then quick pair
-      [n('16'), n('16'), n('q', true)],              // quick pair then long note
-      [r('16'), n('8', true), n('q')],               // off-beat syncopated start
-      [n('16'), n('8', true), n('8', true), n('16')],// palindrome (0.25+0.75+0.75+0.25)
-      [n('8'), n('8'), n('16'), n('16'), n('8')],    // two-16th insertion
-      [n('8'), nt('8'), nt('8'), nt('8'), n('8')],   // 8th-triplet-8th sandwich
+      [n('q', true), n('16'), n('16')],                    // dotted quarter then quick pair
+      [n('16'), n('16'), n('q', true)],                    // quick pair then long note
+      [r('16'), n('8', true), n('q')],                     // off-beat syncopated start
+      [n('16'), n('8', true), n('8', true), n('16')],      // palindrome (0.25+0.75+0.75+0.25)
+      [n('8'), n('8'), n('16'), n('16'), n('8')],          // two-16th insertion
+      [n('8'), nt('8'), nt('8'), nt('8'), n('8')],         // 8th-triplet-8th sandwich
+      [nt('q', true), nt('q'), nt('q')],                   // quarter-triplet: rest-note-note (2/3×3=2)
+      [nt('q'), nt('q', true), nt('q')],                   // quarter-triplet: note-rest-note
+      [nt('q'), nt('q'), nt('q', true)],                   // quarter-triplet: note-note-rest
+      [nt('8', true), nt('8'), nt('8'), n('q')],           // triplet-rest + 2 notes + quarter (1/3×3+1=2)
+      [n('q'), nt('8', true), nt('8'), nt('8')],           // quarter + triplet-rest (1+1/3×3=2)
+      [r('16'), n('8', true), r('16'), n('8', true)],      // off-beat dotted pairs (0.25+0.75×2=2)
+      [r('8'), n('16'), n('16'), n('q')],                  // late entry quick pair (0.5+0.25+0.25+1=2)
     ];
     const pro = [
       [nt('8'), nt('8'), nt('8'), n('q')],
@@ -364,6 +381,16 @@ function generatePattern(level) {
       [nt('8'), nt('8'), nt('8'), n('8'), r('8')],           // triplet + sparse end
       [n('8'), n('16'), n('16'), nt('8'), nt('8'), nt('8')], // straight into triplet
       [nt('8'), nt('8'), nt('8'), n('16'), n('16'), n('8')], // triplet into straight
+      [nt('q', true), nt('q'), nt('q')],                    // quarter-triplet: rest-note-note
+      [nt('q'), nt('q', true), nt('q')],                    // quarter-triplet: note-rest-note
+      [nt('q'), nt('q'), nt('q', true)],                    // quarter-triplet: note-note-rest
+      [nt('8', true), nt('8'), nt('8'), n('q')],            // triplet-rest then quarter
+      [n('q'), nt('8', true), nt('8'), nt('8')],            // quarter then triplet-rest
+      [nt('8', true), nt('8'), nt('8'), nt('8', true), nt('8'), nt('8')], // 6 triplets, beats 1+4 rests
+      [nt('8'), nt('8', true), nt('8'), nt('8'), nt('8', true), nt('8')], // 6 triplets, beats 2+5 rests
+      [r('16'), n('8', true), r('16'), n('8', true)],       // off-beat dotted pairs
+      [n('8', true), r('16'), n('8', true), r('16')],       // dotted pairs with trailing rests
+      [r('8'), n('16'), n('16'), n('q')],                   // late entry then quarter
     ];
     return rnd({ easy, medium, hard, pro }[level]);
   }
@@ -386,6 +413,11 @@ function generatePattern(level) {
       [n('8'), n('8'), n('8'), n('8'), n('q')],       // four 8ths + quarter
       [n('q'), n('8'), n('8'), n('8'), n('8')],       // quarter + four 8ths
       [n('8', true), n('16'), n('q', true), n('8')],  // dotted combo
+      [n('q'), r('q'), n('q')],                       // note-silence-note (1+1+1=3)
+      [r('8'), n('h'), n('8')],                       // delayed half (0.5+2+0.5=3)
+      [n('h'), r('8'), n('8')],                       // half then rest+note (2+0.5+0.5=3)
+      [n('8'), r('8'), n('8'), r('8'), n('q')],       // off-beat 8ths + quarter (0.5×4+1=3)
+      [n('q'), n('8'), r('8'), n('q')],               // quarter, 8th, rest, quarter (1+0.5+0.5+1=3)
     ];
     return rnd([...base, ...extra, [...cell1(), ...cell2()], [...cell2(), ...cell1()]]);
   }
@@ -406,7 +438,15 @@ function generatePattern(level) {
     else notes.push(...cell1());
   }
 
-  if (notes[0].rest) return generatePattern(level);
+  // Allow patterns that start with a rest, as long as beat 1 contains a note.
+  // A leading rest ≤ dotted 8th (0.75 beats) is fine; a full-beat rest is not.
+  let _pos = 0, _ok = false;
+  for (const _n of notes) {
+    if (_pos >= 1) break;
+    if (!_n.rest) { _ok = true; break; }
+    _pos += noteBeats(_n);
+  }
+  if (!_ok) return generatePattern(level);
   return notes;
 }
 
