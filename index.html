@@ -47,7 +47,7 @@
   .difficulty-row {
     display: flex;
     gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
 
   .diff-btn {
@@ -65,7 +65,7 @@
   .diff-btn:hover { border-color: var(--accent); color: var(--text); }
   .diff-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-  /* ── Notation area ──────────────────────────────────────────────── */
+  /* ── Notation area ──────────────────────────────────────────────────── */
   .notation-wrap {
     width: 100%;
     max-width: 680px;
@@ -86,10 +86,9 @@
     overflow: hidden;
     margin-bottom: 8px;
     position: relative;
-    height: 110px;
+    height: 150px;
   }
 
-  /* VexFlow renders black on transparent — invert gives white on transparent */
   .notation-box svg {
     display: block;
     width: 100%;
@@ -105,7 +104,7 @@
     background: var(--surface);
   }
 
-  /* ── Score area ──────────────────────────────────────────────── */
+  /* ── Score area ──────────────────────────────────────────────────── */
   .score-area {
     width: 100%;
     max-width: 680px;
@@ -113,7 +112,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 8px 0 8px;
+    margin: 6px 0 8px;
   }
 
   .score-display {
@@ -127,7 +126,7 @@
   .score-value { font-size: 2.8rem; font-weight: 700; line-height: 1; margin-bottom: 2px; }
   .score-label { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
 
-  /* ── Tap button ──────────────────────────────────────────────── */
+  /* ── Tap button ──────────────────────────────────────────────────── */
   .tap-btn {
     width: 96px; height: 96px;
     border-radius: 50%;
@@ -140,7 +139,7 @@
     cursor: pointer;
     transition: background 0.08s, transform 0.08s, box-shadow 0.08s;
     outline: none;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -161,7 +160,7 @@
   }
   .tap-btn.pressed .tap-btn-sub { color: rgba(255,255,255,0.7); }
 
-  /* ── Controls ──────────────────────────────────────────────── */
+  /* ── Controls ──────────────────────────────────────────────────── */
   .controls-row {
     display: flex;
     gap: 12px;
@@ -228,20 +227,20 @@
 <script>
 const VF = Vex.Flow;
 
-// ─── Note helpers ────────────────────────────────────────────────────────────────────────────────────
+// ─── Note helpers ───────────────────────────────────────────────────────────────────────────────
 const n  = (dur, dot = false, rest = false) => ({ dur, dot, rest, triplet: false });
-const nt = (dur, rest = false) => ({ dur, dot: false, rest, triplet: true });
-const r  = (dur, dot = false) => n(dur, dot, true);
+const nt = (dur, rest = false)              => ({ dur, dot: false, rest, triplet: true });
+const r  = (dur, dot = false)              => n(dur, dot, true);
 
 const DUR_BEATS = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 function noteBeats({ dur, dot, triplet }) {
   let b = DUR_BEATS[dur] || 1;
-  if (dot) b *= 1.5;
+  if (dot)     b *= 1.5;
   if (triplet) b *= 2 / 3;
   return b;
 }
 
-// ─── Random pattern generator ──────────────────────────────────────────────────────────────────────────────────────────────
+// ─── Pattern generator ──────────────────────────────────────────────────────────────────────────────
 function generatePattern(level) {
   const rnd = arr => arr[Math.floor(Math.random() * arr.length)];
 
@@ -249,38 +248,40 @@ function generatePattern(level) {
   function cell1() {
     const easy = [
       [n('q')],
+      [n('8'), n('8')], [n('8'), n('8')],
+      [r('8'), n('8')],
     ];
     const medium = [
-      [n('q')],
       [n('8'), n('8')], [n('8'), n('8')],
       [n('16'), n('16'), n('8')],
       [n('8'), n('16'), n('16')],
-      [r('16'), n('16'), n('8')],
-      [n('8'), r('16'), n('16')],
-    ];
-    const hard = [
-      [n('8'), n('8')],
-      [n('16'), n('16'), n('8')], [n('8'), n('16'), n('16')],
-      [n('16'), n('16'), n('16'), n('16')],
       [r('8'), n('8')],
       [r('16'), n('16'), n('8')],
       [n('8'), r('16'), n('16')],
-      [nt('8'), nt('8'), nt('8')],
-      [nt('8'), nt('8'), nt('8')],
+      [n('8', true), n('16')],
+    ];
+    const hard = [
+      [n('16'), n('16'), n('8')], [n('8'), n('16'), n('16')],
+      [n('16'), n('16'), n('16'), n('16')],
+      [r('16'), n('16'), n('8')],
+      [n('8'), r('16'), n('16')],
+      [r('8'), n('16'), n('16')],
+      [n('8', true), n('16')], [n('8', true), n('16')],
+      [n('16'), n('8', true)],
+      [nt('8'), nt('8'), nt('8')], [nt('8'), nt('8'), nt('8')],
       [n('8'), nt('16'), nt('16'), nt('16')],
       [nt('16'), nt('16'), nt('16'), n('8')],
     ];
     const pro = [
       [n('16'), n('16'), n('16'), n('16')],
-      [r('8'), n('8')],
-      [n('16'), r('16'), n('16'), n('16')],
       [r('16'), n('16'), n('16'), n('16')],
+      [n('16'), r('16'), n('16'), n('16')],
       [n('16'), n('16'), r('16'), n('16')],
-      [nt('8'), nt('8'), nt('8')],
-      [nt('8'), nt('8'), nt('8')],
+      [n('8', true), n('16')], [n('8', true), n('16')],
+      [n('16'), n('8', true)], [n('16'), n('8', true)],
+      [nt('8'), nt('8'), nt('8')], [nt('8'), nt('8'), nt('8')],
       [n('8'), nt('16'), nt('16'), nt('16')],
-      [nt('16'), nt('16'), nt('16'), n('8')],
-      [nt('16'), nt('16'), nt('16'), n('8')],
+      [nt('16'), nt('16'), nt('16'), n('8')], [nt('16'), nt('16'), nt('16'), n('8')],
     ];
     return rnd({ easy, medium, hard, pro }[level]);
   }
@@ -288,17 +289,19 @@ function generatePattern(level) {
   // 2-beat cells
   function cell2() {
     const easy = [
-      [n('h')], [n('q'), n('q')],
+      [n('h')],
+      [n('q'), n('q')], [n('q'), n('q')],
+      [n('q', true), n('8')],
     ];
     const medium = [
-      [n('h')],
-      [n('q'), n('q')],
-      [n('q', true), n('8')],
+      [n('q', true), n('8')], [n('q', true), n('8')],
       [n('8'), n('8'), n('8'), n('8')],
       [n('8'), n('q'), n('8')],
-      [r('q'), n('q')],
-      [n('8'), r('8'), n('q')],
       [r('8'), n('q'), n('8')],
+      [n('8'), r('8'), n('q')],
+      [r('q'), n('q')],
+      [n('8', true), n('16'), n('q')],
+      [n('q'), n('8', true), n('16')],
     ];
     const hard = [
       [n('q', true), n('8')],
@@ -306,6 +309,9 @@ function generatePattern(level) {
       [n('8'), n('8'), n('8'), n('8')],
       [r('8'), n('8'), n('8'), n('8')],
       [n('q'), r('8'), n('8')],
+      [n('8', true), n('16'), n('q')], [n('8', true), n('16'), n('q')],
+      [n('q'), n('8', true), n('16')],
+      [n('8', true), n('16'), n('8', true), n('16')],
       [n('16'), n('16'), n('8'), n('q')],
       [nt('8'), nt('8'), nt('8'), n('q')],
       [n('q'), nt('8'), nt('8'), nt('8')],
@@ -318,13 +324,14 @@ function generatePattern(level) {
       [nt('8'), nt('8'), nt('8'), nt('8'), nt('8'), nt('8')],
       [n('16'), n('16'), n('16'), n('16'), n('8'), n('8')],
       [r('8'), nt('8'), nt('8'), nt('8'), n('8')],
-      [nt('q'), nt('q'), nt('q')],
-      [nt('q'), nt('q'), nt('q')],
+      [nt('q'), nt('q'), nt('q')], [nt('q'), nt('q'), nt('q')],
       [r('q'), nt('8'), nt('8'), nt('8')],
       [nt('8'), nt('8'), nt('8'), r('q')],
       [r('8'), n('8'), nt('8'), nt('8'), nt('8')],
       [n('q'), n('8'), nt('16'), nt('16'), nt('16')],
       [nt('16'), nt('16'), nt('16'), n('8'), n('q')],
+      [n('8', true), n('16'), n('8', true), n('16')],
+      [n('8', true), n('16'), nt('8'), nt('8'), nt('8')],
     ];
     return rnd({ easy, medium, hard, pro }[level]);
   }
@@ -336,15 +343,16 @@ function generatePattern(level) {
     const extra = [
       [n('q', true), n('8'), n('q')],
       [n('q'), n('q', true), n('8')],
+      [n('8', true), n('16'), n('h')],
     ];
     return rnd([...base, ...extra, [...cell1(), ...cell2()], [...cell2(), ...cell1()]]);
   }
 
   const partitions = {
-    easy:   [[4], [2,2], [2,2], [1,1,2], [2,1,1], [1,1,1,1], [3,1], [1,3]],
-    medium: [[2,2], [1,1,2], [2,1,1], [1,2,1], [1,1,1,1], [3,1], [1,3]],
-    hard:   [[1,1,1,1], [1,1,1,1], [1,1,2], [2,1,1], [1,2,1], [2,2], [3,1], [1,3]],
-    pro:    [[1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,2], [2,1,1], [2,2], [3,1], [1,3]],
+    easy:   [[4], [2,2], [2,2], [1,1,2], [2,1,1], [1,1,1,1], [3,1]],
+    medium: [[1,1,1,1], [1,1,1,1], [1,1,2], [2,1,1], [1,2,1], [2,2], [3,1]],
+    hard:   [[1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,2], [2,1,1], [1,2,1], [2,2]],
+    pro:    [[1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,2], [2,1,1]],
   };
   const partition = rnd(partitions[level]);
 
@@ -360,17 +368,16 @@ function generatePattern(level) {
   return notes;
 }
 
-// ─── State ──────────────────────────────────────────────────────────────────────────────────────
-let currentLevel = 'easy';
+// ─── State ────────────────────────────────────────────────────────────────────────────────────
+let currentLevel   = 'easy';
 let currentPattern = null;
-let state = 'idle';
-let tapTimes = [];
+let state          = 'idle';
+let tapTimes       = [];
 let recordingStart = null;
-
 let bar1PixelStart = 0;
 let bar1PixelWidth = 0;
 
-// ─── DOM ───────────────────────────────────────────────────────────────────────────────────────
+// ─── DOM ──────────────────────────────────────────────────────────────────────────────────────
 const notationBox  = document.getElementById('notationBox');
 const userCanvas   = document.getElementById('userCanvas');
 const tapBtn       = document.getElementById('tapBtn');
@@ -382,12 +389,12 @@ const scoreStars   = document.getElementById('scoreStars');
 const retryBtn     = document.getElementById('retryBtn');
 const nextBtn      = document.getElementById('nextBtn');
 
-// ─── Notation rendering ────────────────────────────────────────────────────────────────────────────────────
+// ─── Notation rendering ────────────────────────────────────────────────────────────────────────────
 function renderNotation(pattern) {
   notationBox.innerHTML = '';
 
   const containerW = notationBox.offsetWidth || 640;
-  const H = 110;
+  const H = 150;
 
   const renderer = new VF.Renderer(notationBox, VF.Renderer.Backends.SVG);
   renderer.resize(containerW, H);
@@ -397,32 +404,36 @@ function renderNotation(pattern) {
 
   const margin = 10;
   const totalW = containerW - margin * 2;
-  const b1W = Math.round(totalW * 0.83);
-  const b2W = totalW - b1W;
-  const staveY = 22;
+  const b1W    = Math.round(totalW * 0.83);
+  const b2W    = totalW - b1W;
+  const staveY = 52;
 
-  // Bar 1 — no clef, no time signature: maximise note space
+  // Bar 1 — no clef, no time signature
   const stave1 = new VF.Stave(margin, staveY, b1W);
   stave1.setContext(ctx).draw();
 
-  // Bar 2 (whole note reference)
+  // Bar 2 (whole-note reference)
   const stave2 = new VF.Stave(margin + b1W, staveY, b2W);
   stave2.setEndBarType(VF.Barline.type.END);
   stave2.setContext(ctx).draw();
 
-  const vfNotes1 = [];
-  const tuplets  = [];
-  const tripletBeams = [];
+  const vfNotes1      = [];
+  const tuplets       = [];
+  const tripletBeams  = [];
   const tripletNoteSet = new Set();
   let pi = 0;
+
   while (pi < pattern.length) {
     const spec = pattern[pi];
     if (spec.triplet) {
-      const group = [];
+      const group   = [];
       const groupDur = spec.dur;
       while (pi < pattern.length && pattern[pi].triplet && group.length < 3) {
-        const s = pattern[pi];
-        const vfNote = new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: s.rest ? s.dur + 'r' : s.dur });
+        const s      = pattern[pi];
+        const vfNote = new VF.StaveNote({
+          clef: 'percussion', keys: ['b/4'],
+          duration: s.rest ? s.dur + 'r' : s.dur,
+        });
         group.push(vfNote);
         vfNotes1.push(vfNote);
         tripletNoteSet.add(vfNote);
@@ -430,7 +441,7 @@ function renderNotation(pattern) {
       }
       tuplets.push(new VF.Tuplet(group));
       if (groupDur === '8' || groupDur === '16') {
-        const nonRest = group.filter(n => !n.isRest());
+        const nonRest = group.filter(note => !note.isRest());
         if (nonRest.length >= 2) tripletBeams.push(new VF.Beam(nonRest));
       }
     } else {
@@ -444,15 +455,16 @@ function renderNotation(pattern) {
 
   const vfNotes2 = [new VF.StaveNote({ clef: 'percussion', keys: ['b/4'], duration: 'w' })];
 
-  const beams = VF.Beam.generateBeams(vfNotes1.filter(note => !note.isRest() && !tripletNoteSet.has(note)));
+  const beams = VF.Beam.generateBeams(
+    vfNotes1.filter(note => !note.isRest() && !tripletNoteSet.has(note))
+  );
 
   const voice1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice1.addTickables(vfNotes1);
-
   const voice2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
   voice2.addTickables(vfNotes2);
 
-  const b1NoteArea = b1W - 12; // no modifiers, just opening barline padding
+  const b1NoteArea = b1W - 12;
   const b2NoteArea = b2W - 16;
 
   new VF.Formatter().joinVoices([voice1]).format([voice1], b1NoteArea);
@@ -467,12 +479,12 @@ function renderNotation(pattern) {
   bar1PixelWidth = b1NoteArea;
 }
 
-// ─── User tap canvas ────────────────────────────────────────────────────────────────────────────────────────────
+// ─── User tap canvas ───────────────────────────────────────────────────────────────────────────
 function resizeUserCanvas() {
   const rect = userCanvas.parentElement.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  userCanvas.width  = rect.width * dpr;
-  userCanvas.height = userCanvas.offsetHeight * dpr;
+  const dpr  = window.devicePixelRatio || 1;
+  userCanvas.width        = rect.width * dpr;
+  userCanvas.height       = userCanvas.offsetHeight * dpr;
   userCanvas.style.width  = rect.width + 'px';
   userCanvas.style.height = userCanvas.offsetHeight + 'px';
 }
@@ -494,10 +506,10 @@ function drawUserTaps(relPositions, scoreColors, targetRel) {
   const bar2End  = notationW * scaleX * dpr - 10 * scaleX * dpr;
 
   const showTarget = !!(targetRel && targetRel.length);
-  const userZoneH   = showTarget ? H * 0.55 : H;
+  const userZoneH  = showTarget ? H * 0.55 : H;
   const targetZoneY = H * 0.62;
-  const userMidY    = userZoneH / 2;
-  const userTickH   = userZoneH * 0.55;
+  const userMidY   = userZoneH / 2;
+  const userTickH  = userZoneH * 0.55;
   const targetTickH = (H - targetZoneY - 4 * dpr) * 1.1;
 
   if (showTarget) {
@@ -558,7 +570,7 @@ function drawUserTaps(relPositions, scoreColors, targetRel) {
   }
 }
 
-// ─── Scoring ──────────────────────────────────────────────────────────────────────────────────────────────
+// ─── Scoring ────────────────────────────────────────────────────────────────────────────────────
 function patternToRelative(pattern) {
   const times = [];
   let pos = 0;
@@ -582,8 +594,7 @@ function inferRelative(times) {
 function scoreAttempt(targetRel, userRel, tapSpanMs) {
   if (!userRel.length) return 0;
   const used = new Set();
-  let totalErrMs = 0;
-  let matched = 0;
+  let totalErrMs = 0, matched = 0;
 
   targetRel.forEach(t => {
     let best = Infinity, bestIdx = -1;
@@ -595,9 +606,9 @@ function scoreAttempt(targetRel, userRel, tapSpanMs) {
     if (bestIdx >= 0) { used.add(bestIdx); totalErrMs += best * tapSpanMs; matched++; }
   });
 
-  const extra      = userRel.length - matched;
-  const missing    = targetRel.length - matched;
-  const avgErrMs   = matched > 0 ? totalErrMs / matched : 1000;
+  const extra       = userRel.length - matched;
+  const missing     = targetRel.length - matched;
+  const avgErrMs    = matched > 0 ? totalErrMs / matched : 1000;
   const rhythmScore = Math.max(0, 1 - avgErrMs / 300);
   return Math.round(Math.max(0, rhythmScore - extra * 0.04 - missing * 0.08) * 100);
 }
@@ -605,8 +616,8 @@ function scoreAttempt(targetRel, userRel, tapSpanMs) {
 function tapColors(targetRel, userRel, tapSpanMs) {
   return userRel.map(u => {
     const nearestMs = Math.min(...targetRel.map(t => Math.abs(t - u))) * tapSpanMs;
-    if (nearestMs < 60)   return '#4ade80';
-    if (nearestMs < 130)  return '#facc15';
+    if (nearestMs < 60)  return '#4ade80';
+    if (nearestMs < 130) return '#facc15';
     return '#f87171';
   });
 }
@@ -641,18 +652,13 @@ function showScore(score) {
   scoreDisplay.classList.add('visible');
 }
 
-function hideScore() {
-  scoreDisplay.classList.remove('visible');
-}
+function hideScore() { scoreDisplay.classList.remove('visible'); }
 
-function pickPattern() {
-  return generatePattern(currentLevel);
-}
-
+// ─── App lifecycle ──────────────────────────────────────────────────────────────────────────────
 function loadPattern(pattern) {
   currentPattern = pattern;
-  state = 'idle';
-  tapTimes = [];
+  state          = 'idle';
+  tapTimes       = [];
   recordingStart = null;
   hideScore();
   btnSub.textContent = 'or press space';
@@ -661,8 +667,8 @@ function loadPattern(pattern) {
 }
 
 function startRecording() {
-  state = 'recording';
-  tapTimes = [];
+  state          = 'recording';
+  tapTimes       = [];
   recordingStart = performance.now();
   btnSub.textContent = 'keep tapping!';
   hideScore();
@@ -700,6 +706,7 @@ function finishRecording() {
   btnSub.textContent = 'retry or press space';
 }
 
+// ─── Events ─────────────────────────────────────────────────────────────────────────────────────
 function handleTap(e) {
   e.preventDefault();
   tapBtn.classList.add('pressed');
@@ -723,15 +730,15 @@ document.addEventListener('keyup', e => {
   if (e.code === 'Space') tapBtn.classList.remove('pressed');
 });
 
-retryBtn.addEventListener('click', () => { loadPattern(currentPattern); });
-nextBtn.addEventListener('click',  () => { loadPattern(pickPattern()); });
+retryBtn.addEventListener('click', () => loadPattern(currentPattern));
+nextBtn.addEventListener('click',  () => loadPattern(generatePattern(currentLevel)));
 
 document.querySelectorAll('.diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentLevel = btn.dataset.level;
-    loadPattern(pickPattern());
+    loadPattern(generatePattern(currentLevel));
   });
 });
 
@@ -742,13 +749,13 @@ window.addEventListener('resize', () => {
     const rel    = inferRelative(tapTimes);
     const target = patternToRelative(currentPattern);
     const cols   = state === 'done' ? tapColors(target, rel, spanMs) : null;
-    drawUserTaps(rel, cols);
+    drawUserTaps(rel, cols, state === 'done' ? target : null);
   } else {
     drawUserTaps(null);
   }
 });
 
-loadPattern(pickPattern());
+loadPattern(generatePattern(currentLevel));
 </script>
 </body>
 </html>
